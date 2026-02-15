@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "task-review-manager": {
+      "command": "node",
+      "args": [
+        "c:\\Users\\mohan\\REPO\\zerodha-trade-portal\\utility\\dist\\bundle.js"
+      ],
+      "disabled": false
+    }
+  }
+}

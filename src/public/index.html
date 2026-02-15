@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Review Manager</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f4f5f7;
+            --surface: #ffffff;
+            --border: #dfe1e6;
+            --border-light: #ebecf0;
+            --text: #172b4d;
+            --text-secondary: #5e6c84;
+            --text-muted: #97a0af;
+            --primary: #0052cc;
+            --primary-hover: #0747a6;
+            --danger: #de350b;
+            --danger-hover: #bf2600;
+            --success: #00875a;
+            --column-bg: #ebecf0;
+            --card-hover: #f4f5f7;
+            --shadow: 0 1px 2px rgba(9,30,66,0.08), 0 0 1px rgba(9,30,66,0.12);
+            --shadow-md: 0 4px 8px rgba(9,30,66,0.08), 0 0 1px rgba(9,30,66,0.12);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.4;
+            min-height: 100vh;
+        }
+
+        /* ── Top Nav ── */
+        .topbar {
+            background: #253858;
+            color: #fff;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-title {
+            font-weight: 600;
+            font-size: 14px;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .topbar-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+        .topbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .topbar select {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 13px;
+            min-width: 200px;
+            cursor: pointer;
+        }
+        .topbar select option { color: #172b4d; background: #fff; }
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .live-dot {
+            width: 6px; height: 6px;
+            background: #36b37e;
+            border-radius: 50%;
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+        .topbar-label { font-size: 11px; color: rgba(255,255,255,.6); }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .15s;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-subtle { background: transparent; color: var(--text-secondary); }
+        .btn-subtle:hover { background: rgba(9,30,66,0.08); }
+        .btn-danger { background: transparent; color: var(--danger); }
+        .btn-danger:hover { background: rgba(222,53,11,0.08); }
+        .btn-topbar { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+        .btn-topbar:hover { background: rgba(255,255,255,0.2); }
+        .btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+        /* ── Sub-header / Stats bar ── */
+        .subheader {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-item { display: flex; align-items: baseline; gap: 6px; }
+        .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); font-weight: 600; }
+        .stat-value { font-size: 18px; font-weight: 700; color: var(--text); }
+        .stat-value.highlight { color: var(--primary); }
+        .progress-track {
+            width: 120px; height: 6px;
+            background: var(--border-light);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width .4s ease;
+            border-radius: 3px;
+        }
+        .subheader-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .search-input {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-size: 13px;
+            width: 200px;
+        }
+        .search-input:focus { outline: none; border-color: var(--primary); }
+
+        /* ── Board ── */
+        .board-container {
+            display: flex;
+            overflow-x: auto;
+            padding: 16px;
+            gap: 8px;
+            min-height: calc(100vh - 44px - 53px);
+            align-items: flex-start;
+        }
+        .board-column {
+            min-width: 260px;
+            max-width: 260px;
+            background: var(--column-bg);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 44px - 53px - 32px);
+            flex-shrink: 0;
+        }
+        .column-header {
+            padding: 10px 12px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+        }
+        .column-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            color: var(--text-secondary);
+        }
+        .column-count {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: rgba(9,30,66,0.08);
+            border-radius: 10px;
+            padding: 1px 8px;
+            min-width: 20px;
+            text-align: center;
+        }
+        .column-cards {
+            padding: 0 8px 8px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* ── Cards ── */
+        .task-card {
+            background: var(--surface);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 6px;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            transition: background .1s;
+            border-left: 3px solid transparent;
+        }
+        .task-card:hover { background: var(--card-hover); }
+        .task-card-id {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        .task-card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+        .task-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .task-card-order {
+            background: rgba(9,30,66,0.06);
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+        .task-card-hours { font-weight: 500; }
+        .task-card-deps {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .task-card-tags {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+        .tag-chip {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: rgba(9,30,66,0.06);
+            color: var(--text-secondary);
+        }
+
+        /* Status left-border colors (muted, professional) */
+        .border-PendingProductDirector { border-left-color: #b3bac5; }
+        .border-PendingArchitect { border-left-color: #998dd9; }
+        .border-PendingLeadEngineer { border-left-color: #79b8ff; }
+        .border-PendingCFO { border-left-color: #c4b5fd; }
+        .border-PendingCSO { border-left-color: #a78bfa; }
+        .border-ReadyForDevelopment { border-left-color: #57d9a3; }
+        .border-NeedsRefinement { border-left-color: #f87171; }
+        .border-ToDo { border-left-color: #93c5fd; }
+        .border-InProgress { border-left-color: #0065ff; }
+        .border-InReview { border-left-color: #f59e0b; }
+        .border-InQA { border-left-color: #a855f7; }
+        .border-NeedsChanges { border-left-color: #ef4444; }
+        .border-Done { border-left-color: #22c55e; }
+
+        /* ── Modals ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(9,30,66,0.54);
+            z-index: 200;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 60px;
+            overflow-y: auto;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--surface);
+            border-radius: 4px;
+            width: 560px;
+            max-width: 95vw;
+            box-shadow: 0 8px 16px rgba(9,30,66,0.25);
+            margin-bottom: 40px;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+        .modal-close:hover { background: rgba(9,30,66,0.08); }
+        .modal-body { padding: 16px 20px; }
+        .modal-footer {
+            padding: 12px 20px 16px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .field { margin-bottom: 14px; }
+        .field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+        .field input, .field select, .field textarea {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--text);
+        }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .field textarea { resize: vertical; min-height: 80px; }
+
+        /* ── Task Detail Modal ── */
+        .detail-section { margin-bottom: 16px; }
+        .detail-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+        .detail-label { color: var(--text-secondary); }
+        .detail-value { font-weight: 500; color: var(--text); text-align: right; max-width: 60%; }
+        .status-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+        .badge-pending { background: #f0f0f0; color: #666; }
+        .badge-review { background: #fff3cd; color: #856404; }
+        .badge-active { background: #cce5ff; color: #004085; }
+        .badge-done { background: #d4edda; color: #155724; }
+        .badge-blocked { background: #f8d7da; color: #721c24; }
+
+        .transition-list { list-style: none; }
+        .transition-item {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 12px;
+        }
+        .transition-item:last-child { border-bottom: none; }
+        .transition-arrow { color: var(--text-muted); margin: 0 4px; }
+        .transition-time { color: var(--text-muted); font-size: 11px; display: block; }
+
+        .criteria-list { list-style: none; }
+        .criteria-item {
+            padding: 4px 0;
+            font-size: 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+        .criteria-check { flex-shrink: 0; font-size: 13px; }
+        .criteria-priority {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 0 4px;
+            border-radius: 2px;
+            background: #f0f0f0;
+            color: #666;
+            flex-shrink: 0;
+        }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 16px;
+            border-radius: 3px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: var(--shadow-md);
+            z-index: 300;
+            transition: opacity .3s, transform .3s;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        .toast.visible { opacity: 1; transform: translateY(0); }
+        .toast-error { background: #de350b; color: #fff; }
+        .toast-success { background: #00875a; color: #fff; }
+
+        /* ── Empty / Loading ── */
+        .empty-board {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            min-height: 300px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .empty-board-inner { text-align: center; }
+        .empty-board-inner p { margin-bottom: 12px; }
+
+        /* ── Scrollbar ── */
+        .column-cards::-webkit-scrollbar { width: 6px; }
+        .column-cards::-webkit-scrollbar-track { background: transparent; }
+        .column-cards::-webkit-scrollbar-thumb { background: rgba(9,30,66,0.13); border-radius: 3px; }
+        .board-container::-webkit-scrollbar { height: 8px; }
+        .board-container::-webkit-scrollbar-track { background: transparent; }
+        .board-container::-webkit-scrollbar-thumb { background: rgba(9,30,66,0.13); border-radius: 4px; }
+
+        /* ── Feature List Panel ── */
+        .feature-panel {
+            position: fixed;
+            top: 44px;
+            left: 0;
+            width: 300px;
+            bottom: 0;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            z-index: 90;
+            transform: translateX(-100%);
+            transition: transform .2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .feature-panel.open { transform: translateX(0); }
+        .feature-panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .feature-panel-header h3 { font-size: 14px; font-weight: 600; }
+        .feature-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .feature-item {
+            padding: 10px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-bottom: 2px;
+            transition: background .1s;
+        }
+        .feature-item:hover { background: var(--bg); }
+        .feature-item.active { background: #e4f0ff; }
+        .feature-item-name { font-size: 13px; font-weight: 500; }
+        .feature-item-slug { font-size: 11px; color: var(--text-muted); }
+        .feature-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .feature-panel-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            top: 44px;
+            z-index: 89;
+            background: rgba(0,0,0,0.2);
+        }
+        .feature-panel-backdrop.open { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- ── Top Navigation ── -->
+<div class="topbar">
+    <button class="btn btn-topbar" id="menuBtn" title="Browse features">&#9776;</button>
+    <span class="topbar-title">Task Review Manager</span>
+    <div class="topbar-sep"></div>
+    <div class="topbar-controls">
+        <select id="featureSelect">
+            <option value="">-- Select Feature --</option>
+        </select>
+        <input type="text" id="featureSlugInput" placeholder="or enter slug..." style="
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 3px;
+            padding: 4px 8px;
+            font-size: 13px;
+            width: 180px;
+        ">
+        <button class="btn btn-topbar" onclick="loadFromInput()">Load</button>
+        <button class="btn btn-topbar" onclick="openModal('featureModal')">+ Feature</button>
+        <button class="btn btn-topbar" id="addTaskBtn" onclick="openModal('taskModal')" disabled>+ Task</button>
+        <button class="btn btn-topbar" id="deleteFeatureBtn" style="color:#ff8b8b;" onclick="deleteFeature()" disabled>Delete</button>
+    </div>
+    <div class="topbar-right">
+        <div class="live-dot"></div>
+        <span class="topbar-label">Auto-refresh 5s</span>
+    </div>
+</div>
+
+<!-- ── Stats Sub-header ── -->
+<div class="subheader" id="subheader" style="display:none;">
+    <div class="stat-item">
+        <span class="stat-label">Total</span>
+        <span class="stat-value" id="statTotal">0</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">Done</span>
+        <span class="stat-value highlight" id="statDone">0</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">In Flight</span>
+        <span class="stat-value" id="statInFlight">0</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-label">Blocked</span>
+        <span class="stat-value" id="statBlocked">0</span>
+    </div>
+    <div class="stat-item">
+        <div class="progress-track">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+    </div>
+    <div class="stat-item">
+        <span class="stat-value" id="statPercent" style="font-size:14px;">0%</span>
+    </div>
+    <div class="subheader-right">
+        <input type="text" class="search-input" id="searchInput" placeholder="Filter tasks...">
+    </div>
+</div>
+
+<!-- ── Feature Side Panel ── -->
+<div class="feature-panel-backdrop" id="featurePanelBackdrop"></div>
+<div class="feature-panel" id="featurePanel">
+    <div class="feature-panel-header">
+        <h3>Features</h3>
+        <button class="btn btn-subtle" onclick="closeFeaturePanel()">&#10005;</button>
+    </div>
+    <div class="feature-list" id="featureList">
+        <div style="padding:20px;color:var(--text-muted);text-align:center;font-size:13px;">Loading...</div>
+    </div>
+</div>
+
+<!-- ── Board ── -->
+<div id="boardArea">
+    <div class="empty-board" id="emptyState">
+        <div class="empty-board-inner">
+            <p style="font-size:16px;font-weight:500;color:var(--text-secondary);">No feature selected</p>
+            <p>Select a feature from the dropdown or enter a slug to view the board.</p>
+        </div>
+    </div>
+    <div class="board-container" id="board" style="display:none;"></div>
+</div>
+
+<!-- ── Create Feature Modal ── -->
+<div class="modal-overlay" id="featureModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Create Feature</h3>
+            <button class="modal-close" onclick="closeModal('featureModal')">&#10005;</button>
+        </div>
+        <form onsubmit="createFeature(event)">
+            <div class="modal-body">
+                <div class="field">
+                    <label>Feature Slug</label>
+                    <input type="text" id="newFeatureSlug" required placeholder="my-feature" pattern="[a-z0-9-]+">
+                </div>
+                <div class="field">
+                    <label>Feature Name</label>
+                    <input type="text" id="newFeatureName" required placeholder="My Feature">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-subtle" onclick="closeModal('featureModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Add Task Modal ── -->
+<div class="modal-overlay" id="taskModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Add Task</h3>
+            <button class="modal-close" onclick="closeModal('taskModal')">&#10005;</button>
+        </div>
+        <form onsubmit="addTask(event)">
+            <div class="modal-body">
+                <div class="field">
+                    <label>Task ID</label>
+                    <input type="text" id="newTaskId" required placeholder="T01" pattern="T[0-9]+">
+                </div>
+                <div class="field">
+                    <label>Title</label>
+                    <input type="text" id="newTaskTitle" required placeholder="Implement authentication">
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <textarea id="newTaskDescription" placeholder="Task description..."></textarea>
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <div class="field" style="flex:1;">
+                        <label>Status</label>
+                        <select id="newTaskStatus" required>
+                            <option value="PendingProductDirector">Pending Product Director</option>
+                            <option value="PendingArchitect">Pending Architect</option>
+                            <option value="PendingLeadEngineer">Pending Lead Engineer</option>
+                            <option value="PendingCFO">Pending CFO</option>
+                            <option value="PendingCSO">Pending CSO</option>
+                            <option value="ReadyForDevelopment">Ready For Development</option>
+                            <option value="NeedsRefinement">Needs Refinement</option>
+                            <option value="ToDo">To Do</option>
+                            <option value="InProgress">In Progress</option>
+                            <option value="InReview">In Review</option>
+                            <option value="InQA">In QA</option>
+                            <option value="NeedsChanges">Needs Changes</option>
+                            <option value="Done">Done</option>
+                        </select>
+                    </div>
+                    <div class="field" style="width:100px;">
+                        <label>Order</label>
+                        <input type="number" id="newTaskOrder" required value="1" min="0">
+                    </div>
+                    <div class="field" style="width:100px;">
+                        <label>Est. Hours</label>
+                        <input type="number" id="newTaskHours" min="0" step="0.5" placeholder="--">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-subtle" onclick="closeModal('taskModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Task Detail Modal ── -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal" style="width:640px;">
+        <div class="modal-header">
+            <h3 id="detailTitle">Task Detail</h3>
+            <button class="modal-close" onclick="closeModal('detailModal')">&#10005;</button>
+        </div>
+        <div class="modal-body" id="detailBody"></div>
+    </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+let currentSlug = '';
+let allTasks = [];
+let allFeatures = [];
+let summaryData = null;
+let autoRefreshTimer = null;
+let searchTerm = '';
+
+// ── Status column definitions (ordered like a workflow) ──
+const STATUS_COLUMNS = [
+    { key: 'PendingProductDirector', label: 'Pending PD' },
+    { key: 'PendingArchitect',       label: 'Pending Architect' },
+    { key: 'PendingLeadEngineer',    label: 'Pending Lead Eng' },
+    { key: 'PendingCFO',             label: 'Pending CFO' },
+    { key: 'PendingCSO',             label: 'Pending CSO' },
+    { key: 'NeedsRefinement',        label: 'Needs Refinement' },
+    { key: 'ReadyForDevelopment',    label: 'Ready for Dev' },
+    { key: 'ToDo',                   label: 'To Do' },
+    { key: 'InProgress',             label: 'In Progress' },
+    { key: 'InReview',               label: 'In Review' },
+    { key: 'InQA',                   label: 'In QA' },
+    { key: 'NeedsChanges',           label: 'Needs Changes' },
+    { key: 'Done',                   label: 'Done' },
+];
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+    loadFeatures();
+    document.getElementById('featureSelect').addEventListener('change', onFeatureSelect);
+    document.getElementById('featureSlugInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') loadFromInput();
+    });
+    document.getElementById('menuBtn').addEventListener('click', openFeaturePanel);
+    document.getElementById('featurePanelBackdrop').addEventListener('click', closeFeaturePanel);
+    document.getElementById('searchInput').addEventListener('input', e => {
+        searchTerm = e.target.value.toLowerCase();
+        renderBoard();
+    });
+});
+
+// ── Features ──
+async function loadFeatures() {
+    try {
+        const res = await fetch('/api/features');
+        const data = await res.json();
+        allFeatures = data.features || [];
+        populateFeatureSelect();
+        populateFeaturePanel();
+    } catch (e) {
+        showToast('Failed to load features', 'error');
+    }
+}
+
+function populateFeatureSelect() {
+    const sel = document.getElementById('featureSelect');
+    const val = sel.value;
+    sel.innerHTML = '<option value="">-- Select Feature --</option>';
+    allFeatures.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.featureSlug;
+        opt.textContent = `${f.featureName} (${f.totalTasks})`;
+        sel.appendChild(opt);
+    });
+    if (val) sel.value = val;
+}
+
+function populateFeaturePanel() {
+    const list = document.getElementById('featureList');
+    if (!allFeatures.length) {
+        list.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;font-size:13px;">No features yet.</div>';
+        return;
+    }
+    list.innerHTML = allFeatures.map(f => `
+        <div class="feature-item ${f.featureSlug === currentSlug ? 'active' : ''}" onclick="selectFeature('${f.featureSlug}')">
+            <div class="feature-item-name">${esc(f.featureName)}</div>
+            <div class="feature-item-slug">${esc(f.featureSlug)}</div>
+            <div class="feature-item-meta">${f.totalTasks} tasks &middot; ${timeAgo(f.lastModified)}</div>
+        </div>
+    `).join('');
+}
+
+function openFeaturePanel() {
+    document.getElementById('featurePanel').classList.add('open');
+    document.getElementById('featurePanelBackdrop').classList.add('open');
+}
+function closeFeaturePanel() {
+    document.getElementById('featurePanel').classList.remove('open');
+    document.getElementById('featurePanelBackdrop').classList.remove('open');
+}
+
+function selectFeature(slug) {
+    document.getElementById('featureSelect').value = slug;
+    document.getElementById('featureSlugInput').value = slug;
+    closeFeaturePanel();
+    loadBoard(slug);
+}
+
+function onFeatureSelect() {
+    const slug = document.getElementById('featureSelect').value;
+    if (slug) {
+        document.getElementById('featureSlugInput').value = slug;
+        loadBoard(slug);
+    }
+}
+
+function loadFromInput() {
+    const slug = document.getElementById('featureSlugInput').value.trim();
+    if (!slug) { showToast('Enter a feature slug', 'error'); return; }
+    document.getElementById('featureSelect').value = slug;
+    loadBoard(slug);
+}
+
+// ── Board Loading ──
+async function loadBoard(slug) {
+    currentSlug = slug;
+    document.getElementById('addTaskBtn').disabled = false;
+    document.getElementById('deleteFeatureBtn').disabled = false;
+
+    try {
+        const res = await fetch(`/api/tasks?featureSlug=${encodeURIComponent(slug)}`);
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to load');
+        }
+        summaryData = await res.json();
+        allTasks = summaryData.tasks || [];
+
+        updateStats();
+        renderBoard();
+
+        document.getElementById('emptyState').style.display = 'none';
+        document.getElementById('board').style.display = 'flex';
+        document.getElementById('subheader').style.display = 'flex';
+
+        // Auto-refresh
+        if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+        autoRefreshTimer = setInterval(() => loadBoard(currentSlug), 5000);
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function updateStats() {
+    if (!summaryData) return;
+    const byStatus = summaryData.tasksByStatus || {};
+    document.getElementById('statTotal').textContent = summaryData.totalTasks;
+    document.getElementById('statDone').textContent = byStatus.Done || 0;
+    document.getElementById('statInFlight').textContent =
+        (byStatus.InProgress || 0) + (byStatus.InReview || 0) + (byStatus.InQA || 0);
+    document.getElementById('statBlocked').textContent =
+        (byStatus.NeedsChanges || 0) + (byStatus.NeedsRefinement || 0);
+    const pct = Math.round(summaryData.completionPercentage || 0);
+    document.getElementById('statPercent').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// ── Board Rendering ──
+function renderBoard() {
+    const board = document.getElementById('board');
+    // Build lookup: status -> tasks
+    const buckets = {};
+    STATUS_COLUMNS.forEach(c => { buckets[c.key] = []; });
+
+    const filtered = allTasks.filter(t => {
+        if (!searchTerm) return true;
+        return t.taskId.toLowerCase().includes(searchTerm) ||
+               t.title.toLowerCase().includes(searchTerm);
+    });
+
+    filtered.sort((a, b) => a.orderOfExecution - b.orderOfExecution);
+    filtered.forEach(t => {
+        if (buckets[t.status]) buckets[t.status].push(t);
+    });
+
+    // Only show columns that have tasks or are part of the active workflow
+    const activeColumns = STATUS_COLUMNS.filter(c => buckets[c.key].length > 0);
+    // Always show at least core columns if board has tasks
+    const coreStatuses = ['ToDo', 'InProgress', 'InReview', 'Done'];
+    if (allTasks.length > 0) {
+        coreStatuses.forEach(s => {
+            if (!activeColumns.find(c => c.key === s)) {
+                activeColumns.push(STATUS_COLUMNS.find(c => c.key === s));
+            }
+        });
+    }
+    // Re-sort by original order
+    activeColumns.sort((a, b) =>
+        STATUS_COLUMNS.findIndex(c => c.key === a.key) -
+        STATUS_COLUMNS.findIndex(c => c.key === b.key)
+    );
+
+    board.innerHTML = activeColumns.map(col => `
+        <div class="board-column">
+            <div class="column-header">
+                <span class="column-title">${col.label}</span>
+                <span class="column-count">${buckets[col.key].length}</span>
+            </div>
+            <div class="column-cards">
+                ${buckets[col.key].length === 0
+                    ? ''
+                    : buckets[col.key].map(t => renderCard(t)).join('')
+                }
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderCard(task) {
+    const depStr = task.dependencies && task.dependencies.length
+        ? `<div class="task-card-deps">Depends: ${task.dependencies.join(', ')}</div>` : '';
+    const tagsStr = task.tags && task.tags.length
+        ? `<div class="task-card-tags">${task.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join('')}</div>` : '';
+    return `
+        <div class="task-card border-${task.status}" onclick="showTaskDetail('${task.taskId}')">
+            <div class="task-card-id">${esc(task.taskId)}</div>
+            <div class="task-card-title">${esc(task.title)}</div>
+            <div class="task-card-meta">
+                <span class="task-card-order">#${task.orderOfExecution}</span>
+                ${task.estimatedHours ? `<span class="task-card-hours">${task.estimatedHours}h</span>` : ''}
+            </div>
+            ${depStr}
+            ${tagsStr}
+        </div>
+    `;
+}
+
+// ── Task Detail ──
+async function showTaskDetail(taskId) {
+    try {
+        const res = await fetch(`/api/task?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}`);
+        if (!res.ok) throw new Error('Failed to load task');
+        const task = await res.json();
+        renderTaskDetail(task);
+        openModal('detailModal');
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function renderTaskDetail(task) {
+    document.getElementById('detailTitle').textContent = `${task.taskId} - ${task.title || task.status}`;
+    const body = document.getElementById('detailBody');
+
+    const badgeClass = getBadgeClass(task.status);
+
+    let html = `
+        <div class="detail-section">
+            <div class="detail-section-title">Overview</div>
+            <div class="detail-row">
+                <span class="detail-label">Status</span>
+                <span class="detail-value"><span class="status-badge ${badgeClass}">${formatStatus(task.status)}</span></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Task ID</span>
+                <span class="detail-value">${esc(task.taskId)}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Order</span>
+                <span class="detail-value">${task.orderOfExecution}</span>
+            </div>
+            ${task.estimatedHours ? `<div class="detail-row"><span class="detail-label">Est. Hours</span><span class="detail-value">${task.estimatedHours}h</span></div>` : ''}
+            ${task.currentStakeholder ? `<div class="detail-row"><span class="detail-label">Current Stakeholder</span><span class="detail-value">${formatStatus(task.currentStakeholder)}</span></div>` : ''}
+    `;
+
+    if (task.completedReviews && task.completedReviews.length) {
+        html += `<div class="detail-row"><span class="detail-label">Completed Reviews</span><span class="detail-value">${task.completedReviews.map(formatStatus).join(', ')}</span></div>`;
+    }
+    if (task.pendingReviews && task.pendingReviews.length) {
+        html += `<div class="detail-row"><span class="detail-label">Pending Reviews</span><span class="detail-value">${task.pendingReviews.map(formatStatus).join(', ')}</span></div>`;
+    }
+    if (task.canTransitionTo && task.canTransitionTo.length) {
+        html += `<div class="detail-row"><span class="detail-label">Can Transition To</span><span class="detail-value">${task.canTransitionTo.map(formatStatus).join(', ')}</span></div>`;
+    }
+    html += `</div>`;
+
+    // Find full task data from allTasks for extra detail
+    const fullTask = allTasks.find(t => t.taskId === task.taskId);
+
+    if (fullTask && fullTask.description) {
+        html += `
+            <div class="detail-section">
+                <div class="detail-section-title">Description</div>
+                <p style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;">${esc(fullTask.description)}</p>
+            </div>
+        `;
+    }
+
+    // We show acceptance criteria if the API returns them via fullTask
+    // (the summary endpoint returns minimal data, but we can use what we have)
+
+    body.innerHTML = html;
+}
+
+function getBadgeClass(status) {
+    if (status === 'Done') return 'badge-done';
+    if (['InProgress', 'InReview', 'InQA'].includes(status)) return 'badge-active';
+    if (['NeedsChanges', 'NeedsRefinement'].includes(status)) return 'badge-blocked';
+    if (status.startsWith('Pending')) return 'badge-review';
+    return 'badge-pending';
+}
+
+// ── Create Feature ──
+async function createFeature(e) {
+    e.preventDefault();
+    const slug = document.getElementById('newFeatureSlug').value.trim();
+    const name = document.getElementById('newFeatureName').value.trim();
+    try {
+        const res = await fetch('/api/features', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ featureSlug: slug, featureName: name })
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+        showToast('Feature created', 'success');
+        closeModal('featureModal');
+        document.getElementById('newFeatureSlug').value = '';
+        document.getElementById('newFeatureName').value = '';
+        await loadFeatures();
+        selectFeature(slug);
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ── Add Task ──
+async function addTask(e) {
+    e.preventDefault();
+    const task = {
+        taskId: document.getElementById('newTaskId').value.trim(),
+        title: document.getElementById('newTaskTitle').value.trim(),
+        description: document.getElementById('newTaskDescription').value.trim(),
+        status: document.getElementById('newTaskStatus').value,
+        orderOfExecution: parseInt(document.getElementById('newTaskOrder').value),
+        estimatedHours: parseFloat(document.getElementById('newTaskHours').value) || null,
+        dependencies: [],
+        testScenarios: [],
+        acceptanceCriteria: []
+    };
+    try {
+        const res = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ featureSlug: currentSlug, task })
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+        showToast('Task added', 'success');
+        closeModal('taskModal');
+        document.getElementById('newTaskId').value = '';
+        document.getElementById('newTaskTitle').value = '';
+        document.getElementById('newTaskDescription').value = '';
+        document.getElementById('newTaskOrder').value = '1';
+        document.getElementById('newTaskHours').value = '';
+        await loadBoard(currentSlug);
+        await loadFeatures();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ── Delete Feature ──
+async function deleteFeature() {
+    if (!currentSlug) return;
+    if (!confirm(`Delete feature "${currentSlug}" and ALL its tasks? This cannot be undone.`)) return;
+    try {
+        const res = await fetch(`/api/features/${encodeURIComponent(currentSlug)}`, { method: 'DELETE' });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
+        showToast('Feature deleted', 'success');
+        currentSlug = '';
+        allTasks = [];
+        summaryData = null;
+        document.getElementById('featureSelect').value = '';
+        document.getElementById('featureSlugInput').value = '';
+        document.getElementById('addTaskBtn').disabled = true;
+        document.getElementById('deleteFeatureBtn').disabled = true;
+        document.getElementById('board').style.display = 'none';
+        document.getElementById('subheader').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+        if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+        await loadFeatures();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ── Modals ──
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+// Close modal on backdrop click
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+        e.target.classList.remove('active');
+    }
+});
+// Close modal on Escape
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+        closeFeaturePanel();
+    }
+});
+
+// ── Utils ──
+function formatStatus(s) {
+    if (!s) return '';
+    return s.replace(/([A-Z])/g, ' $1').trim();
+}
+
+function esc(str) {
+    if (!str) return '';
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function timeAgo(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    return days + 'd ago';
+}
+
+function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast toast-' + type + ' visible';
+    setTimeout(() => { t.classList.remove('visible'); }, 3000);
+}
+
+// Cleanup
+window.addEventListener('beforeunload', () => {
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+});
+</script>
+</body>
+</html>

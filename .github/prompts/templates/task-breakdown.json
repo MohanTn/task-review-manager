@@ -1,0 +1,237 @@
+{
+  "jiraticket": "RMP-1234",
+  "task": [
+    {
+      "task": "T01",
+      "status": "PendingProductDirector",
+      "title": "title of the task",
+      "orderOfExecution": 1,
+      "description": "",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "criterion": "When [condition], then [expected outcome]",
+          "priority": "Must Have",
+          "verified": false
+        },
+        {
+          "id": "AC-2",
+          "criterion": "System shall handle [scenario] without errors",
+          "priority": "Must Have",
+          "verified": false
+        },
+        {
+          "id": "AC-3",
+          "criterion": "[Feature] should display [result] when [action]",
+          "priority": "Should Have",
+          "verified": false
+        }
+      ],
+      "testScenarios": [
+        {
+          "id": "TS-1",
+          "title": "Happy Path - Successful Flow",
+          "description": "Test the primary happy path where all conditions are met",
+          "manualOnly": false,
+          "priority": "P0"
+        },
+        {
+          "id": "TS-2",
+          "title": "Edge Case - Invalid Input",
+          "description": "Test how the system handles invalid input data",
+          "manualOnly": false,
+          "priority": "P1"
+        },
+        {
+          "id": "TS-3",
+          "title": "Negative Scenario - System Failure",
+          "description": "Test the system's behavior under failure conditions",
+          "manualOnly": true,
+          "priority": "P2"
+        }
+      ],
+      "outOfScope": [
+        "What is intentionally not included in this task"
+      ],
+      "stakeholderReview": {
+        "productDirectorNotes": "",
+        "architectNotes": "",
+        "leadEngineerNotes": "",
+        "cfoNotes": "",
+        "csoNotes": ""
+      },
+      "transitions": [
+        {
+          "from": "PendingProductDirector",
+          "to": "PendingArchitect",
+          "actor": "productDirector",
+          "timestamp": "2024-01-15T10:30:00Z",
+          "productDirectorNotes": "Feature aligns with user needs and competitive positioning. UX flow approved.",
+          "marketAnalysis": "Competitor X has similar feature, our approach provides better user experience"
+        },
+        {
+          "from": "PendingProductDirector",
+          "to": "NeedsRefinement",
+          "actor": "productDirector",
+          "timestamp": "2024-01-15T10:30:00Z",
+          "productDirectorNotes": "UX flow needs improvement. Consider mobile-first approach and accessibility requirements.",
+          "requiredChanges": "Revise user journey to include edge cases for mobile users"
+        },
+        {
+          "from": "PendingArchitect",
+          "to": "PendingLeadEngineer",
+          "actor": "architect",
+          "timestamp": "2024-01-15T11:00:00Z",
+          "architectNotes": "Technical solution is sound. Recommend using microservices pattern with event-driven architecture.",
+          "technologyRecommendations": "Use Redis for caching, PostgreSQL for persistence, RabbitMQ for async processing",
+          "designPatterns": "CQRS pattern recommended for read/write separation"
+        },
+        {
+          "from": "PendingArchitect",
+          "to": "NeedsRefinement",
+          "actor": "architect",
+          "timestamp": "2024-01-15T11:00:00Z",
+          "architectNotes": "Current approach will cause scalability issues. Must refactor to use distributed architecture.",
+          "technicalConcerns": "Avoid tightly coupled services, implement proper API versioning"
+        },
+        {
+          "from": "PendingLeadEngineer",
+          "to": "PendingCFO",
+          "actor": "leadEngineer",
+          "timestamp": "2024-01-15T11:30:00Z",
+          "leadEngineerNotes": "Task breakdown is clear and executable. Estimated 2 backend engineers and 1 QA for 2 weeks.",
+          "resourcePlan": "Phase 1: Setup infrastructure (3 days), Phase 2: Core implementation (5 days), Phase 3: Testing (4 days)",
+          "estimatedEffort": "80 engineering hours"
+        },
+        {
+          "from": "PendingLeadEngineer",
+          "to": "NeedsRefinement",
+          "actor": "leadEngineer",
+          "timestamp": "2024-01-15T11:30:00Z",
+          "leadEngineerNotes": "Implementation steps are unclear. Need more detailed technical specifications and API contracts.",
+          "requiredClarifications": "Define error handling strategy, API rate limits, and database migration plan"
+        },
+        {
+          "from": "PendingCFO",
+          "to": "PendingCSO",
+          "actor": "cfo",
+          "timestamp": "2024-01-15T14:00:00Z",
+          "cfoNotes": "Cost-benefit analysis favorable. Projected 15% revenue increase with 12-month ROI.",
+          "costAnalysis": "Development cost: $25K, Infrastructure cost: $2K/month, Expected revenue: $50K annually",
+          "revenueOptimization": "Consider premium tier pricing for advanced features"
+        },
+        {
+          "from": "PendingCFO",
+          "to": "NeedsRefinement",
+          "actor": "cfo",
+          "timestamp": "2024-01-15T14:00:00Z",
+          "cfoNotes": "Infrastructure costs too high. Optimize cloud resource usage and consider serverless architecture.",
+          "costConcerns": "Current approach will exceed budget by 40%. Reduce feature scope or defer non-critical components"
+        },
+        {
+          "from": "PendingCSO",
+          "to": "ReadyForDevelopment",
+          "actor": "cso",
+          "timestamp": "2024-01-15T15:00:00Z",
+          "csoNotes": "Security requirements met. Ensure OWASP top 10 compliance, implement rate limiting, and encrypt sensitive data.",
+          "securityRequirements": "Mandatory: OAuth 2.0 authentication, AES-256 encryption at rest, TLS 1.3 in transit, SQL injection prevention",
+          "complianceGuidelines": "GDPR compliant, SOC2 Type II controls required, security audit before production release"
+        },
+        {
+          "from": "PendingCSO",
+          "to": "NeedsRefinement",
+          "actor": "cso",
+          "timestamp": "2024-01-15T15:00:00Z",
+          "csoNotes": "CRITICAL: Security vulnerabilities detected. Must implement proper authentication and input validation.",
+          "securityConcerns": "Potential SQL injection risk, missing rate limiting, insufficient data encryption",
+          "mandatoryControls": "Implement WAF, add security headers, conduct penetration testing before approval"
+        },
+        {
+          "from": "NeedsRefinement",
+          "to": "PendingProductDirector",
+          "actor": "system",
+          "timestamp": "2024-01-15T16:00:00Z",
+          "notes": "Task refined based on stakeholder feedback. Restarting review cycle from Product Director."
+        },
+        {
+          "from": "ReadyForDevelopment",
+          "to": "ToDo",
+          "actor": "system",
+          "timestamp": "2024-01-16T09:00:00Z",
+          "notes": "All stakeholder approvals obtained. Task ready to enter development cycle."
+        },
+        {
+          "from": "ToDo",
+          "to": "InProgress",
+          "actor": "developer",
+          "timestamp": "2024-01-16T09:30:00Z",
+          "developerNotes": "Starting implementation based on approved specifications",
+          "filesChanged": [
+            "/src/service/controller.cs"
+          ]
+        },
+        {
+          "from": "InProgress",
+          "to": "InReview",
+          "actor": "developer",
+          "timestamp": "2024-01-16T15:00:00Z",
+          "developerNotes": "Implementation complete. Added unit tests and integration tests.",
+          "filesChanged": [
+            "/src/service/controller.cs"
+          ],
+          "testFiles": [
+            "/test/service/controllertest.cs"
+          ]
+        },
+        {
+          "from": "InReview",
+          "to": "NeedsChanges",
+          "actor": "reviewer",
+          "timestamp": "2024-01-16T16:00:00Z",
+          "reviewerNotes": "Improve code coverage to 85%. Add error handling for edge cases.",
+          "codeQualityConcerns": "Missing null checks, code coverage at 72%"
+        },
+        {
+          "from": "NeedsChanges",
+          "to": "InReview",
+          "actor": "developer",
+          "timestamp": "2024-01-17T10:00:00Z",
+          "developerNotes": "Added comprehensive error handling and increased coverage to 88%",
+          "filesChanged": [
+            "/src/service/controller.cs"
+          ],
+          "testFiles": [
+            "/test/service/controllertest.cs"
+          ]
+        },
+        {
+          "from": "InReview",
+          "to": "InQA",
+          "actor": "reviewer",
+          "timestamp": "2024-01-17T11:00:00Z",
+          "reviewerNotes": "Code quality meets standards. Approved for QA testing.",
+          "qaSignOff": "approved_for_qa",
+          "testResultsSummary": "88% code coverage, all unit tests passing"
+        },
+        {
+          "from": "InQA",
+          "to": "NeedsChanges",
+          "actor": "qa",
+          "timestamp": "2024-01-17T14:00:00Z",
+          "qaNotes": "AC-1 validation failed on mobile devices. Bug found in error handling for concurrent requests.",
+          "bugsFound": "BUG-101: Mobile UI rendering issue, BUG-102: Race condition in async processing"
+        },
+        {
+          "from": "InQA",
+          "to": "Done",
+          "actor": "qa",
+          "timestamp": "2024-01-18T10:00:00Z",
+          "qaNotes": "All acceptance criteria verified. Regression tests passed. Ready for production deployment.",
+          "deploymentReadiness": "ready_for_production",
+          "acceptanceCriteriaMet": true,
+          "testExecutionSummary": "45 test cases executed, 0 failures, performance benchmarks met"
+        }
+      ]
+    }
+  ]
+}
