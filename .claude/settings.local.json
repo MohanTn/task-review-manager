@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(node:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }

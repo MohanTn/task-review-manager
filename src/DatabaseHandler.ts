@@ -501,23 +501,25 @@ export class DatabaseHandler {
    */
   addTask(featureSlug: string, task: Partial<Task>): void {
     const now = new Date().toISOString();
-    
+
     // Ensure feature exists
     const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
     if (!feature) {
       throw new Error(`Feature not found: ${featureSlug}`);
     }
 
+    const taskId = task.taskId || `T${Date.now()}`;
+
     // Insert task
     this.db.prepare(`
       INSERT INTO tasks (
-        feature_slug, task_id, title, description, status, 
-        assigned_to, estimated_hours, order_of_execution, 
+        feature_slug, task_id, title, description, status,
+        assigned_to, estimated_hours, order_of_execution,
         tags, dependencies, out_of_scope
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       featureSlug,
-      task.taskId || `T${Date.now()}`,
+      taskId,
       task.title || 'New Task',
       task.description || '',
       task.status || 'PendingProductDirector',
@@ -528,6 +530,36 @@ export class DatabaseHandler {
       task.dependencies ? JSON.stringify(task.dependencies) : '[]',
       task.outOfScope ? JSON.stringify(task.outOfScope) : '[]'
     );
+
+    // Insert acceptance criteria
+    if (task.acceptanceCriteria) {
+      for (const criterion of task.acceptanceCriteria) {
+        this.db.prepare(`
+          INSERT INTO acceptance_criteria (
+            feature_slug, task_id, criterion_id, criterion, priority, verified
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `).run(
+          featureSlug, taskId,
+          criterion.id, criterion.criterion, criterion.priority,
+          criterion.verified ? 1 : 0
+        );
+      }
+    }
+
+    // Insert test scenarios
+    if (task.testScenarios) {
+      for (const scenario of task.testScenarios) {
+        this.db.prepare(`
+          INSERT INTO test_scenarios (
+            feature_slug, task_id, scenario_id, title, description, manual_only, priority
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          featureSlug, taskId,
+          scenario.id, scenario.title, scenario.description,
+          scenario.manualOnly ? 1 : 0, scenario.priority
+        );
+      }
+    }
 
     // Update feature last_modified
     this.db.prepare(`

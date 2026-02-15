@@ -34,7 +34,7 @@ export function startDashboard(port: number = 5111) {
   app.get('/api/tasks', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
-      
+
       if (!featureSlug) {
         res.status(400).json({ error: 'Feature slug is required' });
         return;
@@ -43,9 +43,9 @@ export function startDashboard(port: number = 5111) {
       const summary = await reviewManager.getReviewSummary(featureSlug);
       res.json(summary);
     } catch (error) {
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : String(error) 
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes('Feature not found') ? 404 : 500;
+      res.status(status).json({ error: message });
     }
   });
 
@@ -57,7 +57,7 @@ export function startDashboard(port: number = 5111) {
     try {
       const featureSlug = req.query.featureSlug as string;
       const taskId = req.query.id as string;
-      
+
       if (!featureSlug || !taskId) {
         res.status(400).json({ error: 'Feature slug and task ID are required' });
         return;
@@ -66,9 +66,9 @@ export function startDashboard(port: number = 5111) {
       const status = await reviewManager.getTaskStatus(featureSlug, taskId);
       res.json(status);
     } catch (error) {
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : String(error) 
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      const statusCode = message.includes('not found') ? 404 : 500;
+      res.status(statusCode).json({ error: message });
     }
   });
 
@@ -196,6 +196,36 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
+   * GET /api/task/full?featureSlug=<slug>&id=<taskId>
+   * Get full task object (with description, transitions, criteria, etc.)
+   */
+  app.get('/api/task/full', async (req, res): Promise<void> => {
+    try {
+      const featureSlug = req.query.featureSlug as string;
+      const taskId = req.query.id as string;
+
+      if (!featureSlug || !taskId) {
+        res.status(400).json({ error: 'Feature slug and task ID are required' });
+        return;
+      }
+
+      const taskFile = await reviewManager['dbHandler'].loadByFeatureSlug(featureSlug);
+      const task = taskFile.tasks.find((t: { taskId: string }) => t.taskId === taskId);
+
+      if (!task) {
+        res.status(404).json({ error: `Task not found: ${taskId}` });
+        return;
+      }
+
+      res.json(task);
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  /**
    * POST /api/tasks
    * Add a task to a feature
    */
@@ -240,6 +270,11 @@ export function startDashboard(port: number = 5111) {
 }
 
 // Start dashboard if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isDirectRun = (() => {
+  if (!process.argv[1]) return false;
+  const argUrl = new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`).href;
+  return import.meta.url === argUrl;
+})();
+if (isDirectRun) {
   startDashboard();
 }
