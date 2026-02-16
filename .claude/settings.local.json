@@ -6,7 +6,10 @@
       "Bash(curl:*)",
       "Bash(node -e:*)",
       "Bash(node:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(npm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

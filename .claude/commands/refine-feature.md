@@ -6,7 +6,7 @@ description: This workflow refines a feature ticket by gathering context, analyz
 - Jira Ticket Key or feature description
 
 # Output file
-- Create a new file in `.github/artifacts/<feature-slug>/refine-ticket.md` (relative to current workspace)
+- Create a new file in `.claude/artifacts/<feature-slug>/refine-ticket.md` (relative to current workspace)
 
 # Step 1
 - Determine scope: feature enhancement, bug fix, or refinement

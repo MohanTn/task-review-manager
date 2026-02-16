@@ -6,7 +6,7 @@ description: Here you will execute a carefully orchestrated workflow by followin
 - Refined feature_slug path (e.g. `smart-strangle-engine`) with pre-approved tasks from the refinement phase stored in the MCP database
 
 # Output file
-- Create a new file in `.github/artifacts/<feature_slug>/dev-workflow.md` (relative to current workspace)
+- Create a new file in `.claude/artifacts/<feature_slug>/dev-workflow.md` (relative to current workspace)
 
 # Step 1
 - **PREREQUISITE**: This workflow requires a completed feature refinement with stakeholder-approved tasks
