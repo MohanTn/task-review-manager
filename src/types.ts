@@ -5,9 +5,8 @@
 export type TaskStatus =
   | 'PendingProductDirector'
   | 'PendingArchitect'
-  | 'PendingLeadEngineer'
-  | 'PendingCFO'
-  | 'PendingCSO'
+  | 'PendingUiUxExpert'
+  | 'PendingSecurityOfficer'
   | 'ReadyForDevelopment'
   | 'NeedsRefinement'
   | 'ToDo'
@@ -17,11 +16,22 @@ export type TaskStatus =
   | 'NeedsChanges'
   | 'Done';
 
-export type StakeholderRole = 'productDirector' | 'architect' | 'leadEngineer' | 'cfo' | 'cso';
+export type StakeholderRole = 'productDirector' | 'architect' | 'uiUxExpert' | 'securityOfficer';
 
-export type ActorType = StakeholderRole | 'system' | 'developer' | 'reviewer' | 'qa';
+export type ActorType = StakeholderRole | 'system' | 'developer' | 'codeReviewer' | 'qa';
 
 export type ReviewDecision = 'approve' | 'reject';
+
+export type PipelineRole =
+  | 'productDirector'
+  | 'architect'
+  | 'uiUxExpert'
+  | 'securityOfficer'
+  | 'developer'
+  | 'codeReviewer'
+  | 'qa';
+
+export type PipelinePhase = 'review' | 'execution';
 
 export interface Transition {
   from: TaskStatus;
@@ -33,24 +43,20 @@ export interface Transition {
   // Product Director
   productDirectorNotes?: string;
   marketAnalysis?: string;
+  competitorAnalysis?: string;
   requiredChanges?: string;
   // Architect
   architectNotes?: string;
   technologyRecommendations?: string;
   designPatterns?: string;
   technicalConcerns?: string;
-  // Lead Engineer
-  leadEngineerNotes?: string;
-  resourcePlan?: string;
-  estimatedEffort?: string;
-  requiredClarifications?: string;
-  // CFO
-  cfoNotes?: string;
-  costAnalysis?: string;
-  revenueOptimization?: string;
-  costConcerns?: string;
-  // CSO
-  csoNotes?: string;
+  // UI/UX Expert
+  uiUxNotes?: string;
+  usabilityFindings?: string;
+  accessibilityRequirements?: string;
+  userBehaviorInsights?: string;
+  // Security Officer
+  securityOfficerNotes?: string;
   securityRequirements?: string;
   complianceGuidelines?: string;
   securityConcerns?: string;
@@ -59,9 +65,8 @@ export interface Transition {
   developerNotes?: string;
   filesChanged?: string[];
   testFiles?: string[];
-  // Reviewer
-  reviewerNotes?: string;
-  qaSignOff?: string;
+  // Code Reviewer
+  codeReviewerNotes?: string;
   testResultsSummary?: string;
   codeQualityConcerns?: string;
   // QA
@@ -92,6 +97,7 @@ export interface StakeholderReview {
     approved: boolean;
     notes: string;
     marketAnalysis?: string;
+    competitorAnalysis?: string;
   };
   architect?: {
     approved: boolean;
@@ -99,19 +105,14 @@ export interface StakeholderReview {
     technologyRecommendations?: string[];
     designPatterns?: string[];
   };
-  leadEngineer?: {
+  uiUxExpert?: {
     approved: boolean;
     notes: string;
-    resourcePlan?: string;
-    implementationPhases?: string[];
+    usabilityFindings?: string;
+    accessibilityRequirements?: string[];
+    userBehaviorInsights?: string;
   };
-  cfo?: {
-    approved: boolean;
-    notes: string;
-    costAnalysis?: string;
-    revenueOptimization?: string;
-  };
-  cso?: {
+  securityOfficer?: {
     approved: boolean;
     notes: string;
     securityRequirements?: string[];
@@ -152,13 +153,17 @@ export interface ReviewInput {
   decision: ReviewDecision;
   notes: string;
   additionalFields?: {
+    // Product Director
     marketAnalysis?: string;
+    competitorAnalysis?: string;
+    // Architect
     technologyRecommendations?: string[];
     designPatterns?: string[];
-    resourcePlan?: string;
-    implementationPhases?: string[];
-    costAnalysis?: string;
-    revenueOptimization?: string;
+    // UI/UX Expert
+    usabilityFindings?: string;
+    accessibilityRequirements?: string[];
+    userBehaviorInsights?: string;
+    // Security Officer
     securityRequirements?: string[];
     complianceNotes?: string;
   };
@@ -193,9 +198,8 @@ export interface ReviewSummary {
   stakeholderProgress: {
     productDirector: { completed: number; pending: number };
     architect: { completed: number; pending: number };
-    leadEngineer: { completed: number; pending: number };
-    cfo: { completed: number; pending: number };
-    cso: { completed: number; pending: number };
+    uiUxExpert: { completed: number; pending: number };
+    securityOfficer: { completed: number; pending: number };
   };
   tasks: Array<{
     taskId: string;
@@ -231,36 +235,30 @@ export const WORKFLOW_RULES: Record<TaskStatus, WorkflowRule | null> = {
   },
   PendingArchitect: {
     expectedStakeholder: 'architect',
-    onApprove: 'PendingLeadEngineer',
+    onApprove: 'PendingUiUxExpert',
     onReject: 'NeedsRefinement',
     allowedPreviousStatuses: ['PendingProductDirector'],
   },
-  PendingLeadEngineer: {
-    expectedStakeholder: 'leadEngineer',
-    onApprove: 'PendingCFO',
+  PendingUiUxExpert: {
+    expectedStakeholder: 'uiUxExpert',
+    onApprove: 'PendingSecurityOfficer',
     onReject: 'NeedsRefinement',
     allowedPreviousStatuses: ['PendingArchitect'],
   },
-  PendingCFO: {
-    expectedStakeholder: 'cfo',
-    onApprove: 'PendingCSO',
-    onReject: 'NeedsRefinement',
-    allowedPreviousStatuses: ['PendingLeadEngineer'],
-  },
-  PendingCSO: {
-    expectedStakeholder: 'cso',
+  PendingSecurityOfficer: {
+    expectedStakeholder: 'securityOfficer',
     onApprove: 'ReadyForDevelopment',
     onReject: 'NeedsRefinement',
-    allowedPreviousStatuses: ['PendingCFO'],
+    allowedPreviousStatuses: ['PendingUiUxExpert'],
   },
-  ReadyForDevelopment: null, // Can transition to ToDo
-  NeedsRefinement: null, // Terminal state (requires manual reset)
-  ToDo: null, // Can transition to InProgress
-  InProgress: null, // Can transition to InReview
-  InReview: null, // Can transition to InQA or NeedsChanges
-  InQA: null, // Can transition to Done or NeedsChanges
-  NeedsChanges: null, // Can transition back to InProgress
-  Done: null, // Terminal state
+  ReadyForDevelopment: null,
+  NeedsRefinement: null,
+  ToDo: null,
+  InProgress: null,
+  InReview: null,
+  InQA: null,
+  NeedsChanges: null,
+  Done: null,
 };
 
 // Development workflow transition rules
@@ -271,21 +269,20 @@ export interface DevWorkflowRule {
 
 export const DEV_WORKFLOW_RULES: Record<TaskStatus, DevWorkflowRule> = {
   PendingProductDirector: { allowedActors: ['productDirector', 'system'], allowedTransitions: ['PendingArchitect', 'NeedsRefinement'] },
-  PendingArchitect: { allowedActors: ['architect', 'system'], allowedTransitions: ['PendingLeadEngineer', 'NeedsRefinement'] },
-  PendingLeadEngineer: { allowedActors: ['leadEngineer', 'system'], allowedTransitions: ['PendingCFO', 'NeedsRefinement'] },
-  PendingCFO: { allowedActors: ['cfo', 'system'], allowedTransitions: ['PendingCSO', 'NeedsRefinement'] },
-  PendingCSO: { allowedActors: ['cso', 'system'], allowedTransitions: ['ReadyForDevelopment', 'NeedsRefinement'] },
+  PendingArchitect: { allowedActors: ['architect', 'system'], allowedTransitions: ['PendingUiUxExpert', 'NeedsRefinement'] },
+  PendingUiUxExpert: { allowedActors: ['uiUxExpert', 'system'], allowedTransitions: ['PendingSecurityOfficer', 'NeedsRefinement'] },
+  PendingSecurityOfficer: { allowedActors: ['securityOfficer', 'system'], allowedTransitions: ['ReadyForDevelopment', 'NeedsRefinement'] },
   ReadyForDevelopment: { allowedActors: ['system'], allowedTransitions: ['ToDo'] },
   NeedsRefinement: { allowedActors: ['system'], allowedTransitions: ['PendingProductDirector'] },
   ToDo: { allowedActors: ['system', 'developer'], allowedTransitions: ['InProgress'] },
   InProgress: { allowedActors: ['developer'], allowedTransitions: ['InReview'] },
-  InReview: { allowedActors: ['reviewer'], allowedTransitions: ['InQA', 'NeedsChanges'] },
+  InReview: { allowedActors: ['codeReviewer'], allowedTransitions: ['InQA', 'NeedsChanges'] },
   InQA: { allowedActors: ['qa'], allowedTransitions: ['Done', 'NeedsChanges'] },
   NeedsChanges: { allowedActors: ['developer'], allowedTransitions: ['InProgress'] },
   Done: { allowedActors: [], allowedTransitions: [] },
 };
 
-// New tool input/output interfaces
+// Tool input/output interfaces
 
 export interface TransitionTaskInput {
   featureSlug: string;
@@ -315,6 +312,29 @@ export interface GetNextTaskInput {
 export interface GetNextTaskResult {
   success: boolean;
   task?: Task;
+  message?: string;
+  error?: string;
+}
+
+export interface GetNextStepInput {
+  featureSlug: string;
+  taskId: string;
+}
+
+export interface GetNextStepResult {
+  success: boolean;
+  taskId: string;
+  currentStatus: TaskStatus;
+  phase: PipelinePhase;
+  nextRole: PipelineRole;
+  systemPrompt: string;
+  allowedDecisions: string[];
+  transitionOnSuccess: TaskStatus;
+  transitionOnFailure: TaskStatus;
+  focusAreas: string[];
+  researchInstructions: string;
+  requiredOutputFields: string[];
+  previousRoleNotes: Record<string, string>;
   message?: string;
   error?: string;
 }
@@ -362,6 +382,68 @@ export interface VerifyAllTasksCompleteResult {
     title: string;
     status: TaskStatus;
   }>;
+  message?: string;
+  error?: string;
+}
+
+// Feature & Task creation types
+
+export interface CreateFeatureInput {
+  featureSlug: string;
+  featureName: string;
+}
+
+export interface CreateFeatureResult {
+  success: boolean;
+  featureSlug: string;
+  message?: string;
+  error?: string;
+}
+
+export interface AddTaskInput {
+  featureSlug: string;
+  taskId: string;
+  title: string;
+  description: string;
+  orderOfExecution: number;
+  acceptanceCriteria?: AcceptanceCriterion[];
+  testScenarios?: TestScenario[];
+  outOfScope?: string[];
+  estimatedHours?: number;
+  dependencies?: string[];
+  tags?: string[];
+}
+
+export interface AddTaskResult {
+  success: boolean;
+  featureSlug: string;
+  taskId: string;
+  message?: string;
+  error?: string;
+}
+
+export interface ListFeaturesResult {
+  success: boolean;
+  features: Array<{
+    featureSlug: string;
+    featureName: string;
+    lastModified: string;
+    totalTasks: number;
+  }>;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteFeatureResult {
+  success: boolean;
+  featureSlug: string;
+  message?: string;
+  error?: string;
+}
+
+export interface GetFeatureResult {
+  success: boolean;
+  feature?: TaskFile;
   message?: string;
   error?: string;
 }

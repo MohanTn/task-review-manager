@@ -55,7 +55,8 @@ description: This workflow refines a feature ticket by gathering context, analyz
   - Map relevant test scenarios to the task
   - Define what is out of scope for this task
   - Set orderOfExecution (sequential numbering)
-- Generate task.json file in `.github/artifacts/<feature-slug>/task.json` using the `.github/prompts/templates/task-breakdown.json` template
+- Use the MCP tool `create_feature` to create the feature entry
+- Use the MCP tool `add_task` for each task
 - Ensure each task is:
   - Independently testable
   - Has clear boundaries
@@ -63,132 +64,44 @@ description: This workflow refines a feature ticket by gathering context, analyz
   - Maps to specific test scenarios
 - add Step 6 completed into output file with task breakdown summary (number of tasks, titles)
 
-# Step 7 - Stakeholder Review Cycle
-**CRITICAL: You MUST update `.github/artifacts/<feature-slug>/task.json` after EVERY stakeholder review. Read the file before each review to verify current state, update status and add transition record, then SAVE the file before proceeding to next stakeholder.**
+# Step 7 - Stakeholder Review Cycle (MCP Orchestrated)
+**CRITICAL: The MCP server orchestrates this entire review cycle. Use `get_next_step` to determine what role to adopt and what to do at each step.**
 
-- For each task '$TASK' in `.github/artifacts/<feature-slug>/task.json`, execute the following sequential stakeholder review:
+- For each task in the feature, execute the following loop until the task reaches "ReadyForDevelopment":
 
-  ## Step 7.1 - Product Director Review
-  - READ `.github/artifacts/<feature-slug>/task.json` to get current task state
-  - Switch to Role `productDirector`
-  - Review task focusing on:
-    - User experience and usability
-    - Feature value and market positioning
-    - Competitor analysis and differentiation
-    - Mobile and accessibility considerations
-    - Overall user journey and workflow
-  - **Decision Point:**
-    - If concerns found: **REQUIRED** update transition and set status to "NeedsRefinement":
-      - '$TASK'.transitions.add({
-        "from": "PendingProductDirector",
-        "to": "NeedsRefinement",
-        "actor": "productDirector",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "productDirectorNotes": "<UX_concerns_and_required_changes>",
-        "requiredChanges": "<specific_improvements_needed>",
-        "marketAnalysis": "<competitor_insights_if_applicable>"
-      })
-      - '$TASK'.stakeholderReview.productDirectorNotes = "<detailed_feedback>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **Restart review cycle**: Task must be refined and re-reviewed from Product Director (go back to Step 7.1 after refinement)
-      - Exit Step 7.1
-    - If approved: **REQUIRED** update transition and set status to "PendingArchitect":
-      - '$TASK'.transitions.add({
-        "from": "PendingProductDirector",
-        "to": "PendingArchitect",
-        "actor": "productDirector",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "productDirectorNotes": "<approval_summary_and_UX_validation>",
-        "marketAnalysis": "<competitive_positioning_insights>"
-      })
-      - '$TASK'.stakeholderReview.productDirectorNotes = "<approval_details>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **VERIFICATION**: Read task.json to confirm status is "PendingArchitect"
-      - Proceed to Step 7.2
+  ## 7.1 - Get Next Step
+  - Call `get_next_step` with the featureSlug and taskId
+  - The MCP server returns:
+    - `nextRole`: The stakeholder role you must adopt (productDirector, architect, uiUxExpert, securityOfficer)
+    - `systemPrompt`: Complete instructions for what to focus on, research, and decide
+    - `allowedDecisions`: What actions you can take (approve/reject)
+    - `focusAreas`: Specific areas to evaluate
+    - `researchInstructions`: What to research on the internet
+    - `requiredOutputFields`: Fields you must populate in your review
+    - `previousRoleNotes`: Context from prior stakeholder reviews
 
-  ## Step 7.2 - Architect Review
-  - READ `.github/artifacts/<feature-slug>/task.json` to verify task is in "PendingArchitect" status
-  - Switch to Role `architect`
-  - Review task focusing on:
-    - Technical solution soundness and scalability
-    - Technology stack recommendations (best practices)
-    - Design patterns and architectural principles
-    - System integration and dependencies
-    - Industry research and technical trends
-    - Technical dos and don'ts
-    - API design and database schema recommendations
-  - **Decision Point:**
-    - If concerns found: **REQUIRED** update transition and set status to "NeedsRefinement":
-      - '$TASK'.transitions.add({
-        "from": "PendingArchitect",
-        "to": "NeedsRefinement",
-        "actor": "architect",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "architectNotes": "<technical_concerns_and_required_changes>",
-        "technicalConcerns": "<scalability_or_design_issues>",
-        "technologyRecommendations": "<alternative_approaches>"
-      })
-      - '$TASK'.stakeholderReview.architectNotes = "<detailed_technical_feedback>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **Restart review cycle**: Return to Step 7.1 (Product Director)
-      - Exit Step 7.2
-    - If approved: **REQUIRED** update transition and set status to "PendingLeadEngineer":
-      - '$TASK'.transitions.add({
-        "from": "PendingArchitect",
-        "to": "PendingLeadEngineer",
-        "actor": "architect",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "architectNotes": "<technical_approval_and_recommendations>",
-        "technologyRecommendations": "<approved_tech_stack>",
-        "designPatterns": "<recommended_patterns_and_practices>"
-      })
-      - '$TASK'.stakeholderReview.architectNotes = "<technical_approval_details>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **VERIFICATION**: Read task.json to confirm status is "PendingLeadEngineer"
-      - Proceed to Step 7.3
+  ## 7.2 - Execute Role
+  - Adopt the `nextRole` identity
+  - Follow the `systemPrompt` instructions exactly
+  - Research the `focusAreas` using `researchInstructions`
+  - Evaluate the task against the role's criteria
 
-  ## Step 7.3 - CSO (Chief Security Officer) Review
-  - READ `.github/artifacts/<feature-slug>/task.json` to verify task is in "PendingCSO" status
-  - Switch to Role `cso`
-  - Review task focusing on:
-    - Security vulnerabilities and threat assessment
-    - Compliance with security standards (OWASP, GDPR, SOC2, etc.)
-    - Data protection and encryption requirements
-    - Authentication and authorization mechanisms
-    - Security best practices and mandatory controls
-    - Risk mitigation strategies
-  - **Decision Point:**
-    - If concerns found: **REQUIRED** update transition and set status to "NeedsRefinement":
-      - '$TASK'.transitions.add({
-        "from": "PendingCSO",
-        "to": "NeedsRefinement",
-        "actor": "cso",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "csoNotes": "<CRITICAL_security_vulnerabilities_and_mandatory_fixes>",
-        "securityConcerns": "<identified_risks_and_threats>",
-        "mandatoryControls": "<required_security_measures>"
-      })
-      - '$TASK'.stakeholderReview.csoNotes = "<detailed_security_feedback>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **Restart review cycle**: Return to Step 7.1 (Product Director)
-      - Exit Step 7.3
-    - If approved: **REQUIRED** update transition and set status to "ReadyForDevelopment":
-      - '$TASK'.transitions.add({
-        "from": "PendingCSO",
-        "to": "ReadyForDevelopment",
-        "actor": "cso",
-        "timestamp": "<current_timestamp_ISO8601>",
-        "csoNotes": "<security_approval_and_compliance_confirmation>",
-        "securityRequirements": "<mandatory_security_controls_to_implement>",
-        "complianceGuidelines": "<regulatory_requirements_and_audit_checklist>"
-      })
-      - '$TASK'.stakeholderReview.csoNotes = "<security_approval_details>"
-      - **REQUIRED**: SAVE the updated task.json file
-      - **VERIFICATION**: Read task.json to confirm status is "ReadyForDevelopment"
-      - Task review complete, proceed to next task
+  ## 7.3 - Submit Review
+  - Call `add_stakeholder_review` with:
+    - `featureSlug`, `taskId`, `stakeholder` (the nextRole)
+    - `decision`: "approve" or "reject" based on your evaluation
+    - `notes`: Detailed review notes
+    - `additionalFields`: Populate all `requiredOutputFields` from Step 7.1
+  - The MCP server automatically transitions the task status
 
-- **VERIFICATION**: After all tasks reviewed, READ `.github/artifacts/<feature-slug>/task.json` and confirm ALL tasks have status "ReadyForDevelopment"
-- add Step 7 completed into output file with stakeholder review summary (all approvals obtained, any major concerns raised and resolved)
+  ## 7.4 - Loop
+  - Call `get_next_step` again for this task
+  - If task is still in a review phase (Pending*), repeat from Step 7.2
+  - If task reached "ReadyForDevelopment", move to the next task
+  - If task was rejected to "NeedsRefinement", the loop restarts from Product Director
+
+- **VERIFICATION**: After all tasks reviewed, call `verify_all_tasks_complete` or `get_tasks_by_status` to confirm all tasks have status "ReadyForDevelopment"
+- add Step 7 completed into output file with stakeholder review summary
 
 # Step 8
 - Combine all acceptance criteria into a single text block

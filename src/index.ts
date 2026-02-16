@@ -30,6 +30,25 @@ const reviewManager = new TaskReviewManager();
 // Tool definitions
 const TOOLS = [
   {
+    name: 'get_next_step',
+    description:
+      'Get the next step in the task pipeline. Returns which role should act next, the system prompt for that role, allowed decisions, transition targets, focus areas, and context from previous reviews. This is the primary orchestration tool -- call this to determine what to do next for any task.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug name',
+        },
+        taskId: {
+          type: 'string',
+          description: 'Unique task identifier (e.g., T01, T02)',
+        },
+      },
+      required: ['featureSlug', 'taskId'],
+    },
+  },
+  {
     name: 'add_stakeholder_review',
     description:
       'Add a stakeholder review to a task. Updates task status based on approval/rejection and enforces workflow state machine rules.',
@@ -46,7 +65,7 @@ const TOOLS = [
         },
         stakeholder: {
           type: 'string',
-          enum: ['productDirector', 'architect', 'leadEngineer', 'cfo', 'cso'],
+          enum: ['productDirector', 'architect', 'uiUxExpert', 'securityOfficer'],
           description: 'Stakeholder role performing the review',
         },
         decision: {
@@ -63,12 +82,12 @@ const TOOLS = [
           description: 'Role-specific additional fields',
           properties: {
             marketAnalysis: { type: 'string' },
+            competitorAnalysis: { type: 'string' },
             technologyRecommendations: { type: 'array', items: { type: 'string' } },
             designPatterns: { type: 'array', items: { type: 'string' } },
-            resourcePlan: { type: 'string' },
-            implementationPhases: { type: 'array', items: { type: 'string' } },
-            costAnalysis: { type: 'string' },
-            revenueOptimization: { type: 'string' },
+            usabilityFindings: { type: 'string' },
+            accessibilityRequirements: { type: 'array', items: { type: 'string' } },
+            userBehaviorInsights: { type: 'string' },
             securityRequirements: { type: 'array', items: { type: 'string' } },
             complianceNotes: { type: 'string' },
           },
@@ -128,7 +147,7 @@ const TOOLS = [
         },
         stakeholder: {
           type: 'string',
-          enum: ['productDirector', 'architect', 'leadEngineer', 'cfo', 'cso'],
+          enum: ['productDirector', 'architect', 'uiUxExpert', 'securityOfficer'],
           description: 'Stakeholder role to validate',
         },
       },
@@ -160,7 +179,7 @@ const TOOLS = [
         },
         actor: {
           type: 'string',
-          enum: ['system', 'developer', 'reviewer', 'qa', 'productDirector', 'architect', 'leadEngineer', 'cfo', 'cso'],
+          enum: ['system', 'developer', 'codeReviewer', 'qa', 'productDirector', 'architect', 'uiUxExpert', 'securityOfficer'],
           description: 'Actor performing the transition',
         },
         notes: {
@@ -174,8 +193,7 @@ const TOOLS = [
             developerNotes: { type: 'string' },
             filesChanged: { type: 'array', items: { type: 'string' } },
             testFiles: { type: 'array', items: { type: 'string' } },
-            reviewerNotes: { type: 'string' },
-            qaSignOff: { type: 'string' },
+            codeReviewerNotes: { type: 'string' },
             testResultsSummary: { type: 'string' },
             codeQualityConcerns: { type: 'string' },
             qaNotes: { type: 'string' },
@@ -270,6 +288,143 @@ const TOOLS = [
       required: ['featureSlug'],
     },
   },
+  {
+    name: 'create_feature',
+    description:
+      'Create a new feature. This is the first step before adding tasks. Creates a feature entry with a slug and display name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'URL-friendly feature slug (e.g., "smart-strangle-engine")',
+        },
+        featureName: {
+          type: 'string',
+          description: 'Human-readable feature name (e.g., "Smart Strangle Engine")',
+        },
+      },
+      required: ['featureSlug', 'featureName'],
+    },
+  },
+  {
+    name: 'add_task',
+    description:
+      'Add a task to an existing feature. The task starts in PendingProductDirector status and proceeds through: Product Director > Architect > UI/UX Expert > Security Officer > Developer > Code Reviewer > QA > Done.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug to add the task to',
+        },
+        taskId: {
+          type: 'string',
+          description: 'Unique task identifier (e.g., T01, T02)',
+        },
+        title: {
+          type: 'string',
+          description: 'Task title',
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed task description',
+        },
+        orderOfExecution: {
+          type: 'number',
+          description: 'Execution order (1, 2, 3, etc.)',
+        },
+        acceptanceCriteria: {
+          type: 'array',
+          description: 'List of acceptance criteria',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Criterion ID (e.g., AC-1)' },
+              criterion: { type: 'string', description: 'The acceptance criterion text' },
+              priority: { type: 'string', enum: ['Must Have', 'Should Have', 'Could Have'] },
+            },
+            required: ['id', 'criterion', 'priority'],
+          },
+        },
+        testScenarios: {
+          type: 'array',
+          description: 'List of test scenarios',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Scenario ID (e.g., TS-1)' },
+              title: { type: 'string', description: 'Test scenario title' },
+              description: { type: 'string', description: 'Test scenario description' },
+              manualOnly: { type: 'boolean', description: 'Whether this test is manual only' },
+              priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+            },
+            required: ['id', 'title', 'description', 'priority'],
+          },
+        },
+        outOfScope: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Items explicitly out of scope for this task',
+        },
+        estimatedHours: {
+          type: 'number',
+          description: 'Estimated hours to complete',
+        },
+        dependencies: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Task IDs this task depends on',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Tags for categorization',
+        },
+      },
+      required: ['featureSlug', 'taskId', 'title', 'description', 'orderOfExecution'],
+    },
+  },
+  {
+    name: 'list_features',
+    description:
+      'List all features with their task counts and last modified timestamps.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'delete_feature',
+    description:
+      'Delete a feature and all its associated tasks, transitions, and reviews.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug to delete',
+        },
+      },
+      required: ['featureSlug'],
+    },
+  },
+  {
+    name: 'get_feature',
+    description:
+      'Get a complete feature with all its tasks, transitions, acceptance criteria, test scenarios, and stakeholder reviews.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug name',
+        },
+      },
+      required: ['featureSlug'],
+    },
+  },
 ];
 
 // List tools handler
@@ -289,6 +444,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     switch (name) {
+      case 'get_next_step': {
+        const result = await reviewManager.getNextStep({
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
       case 'add_stakeholder_review': {
         const input: ReviewInput = {
           featureSlug: args.featureSlug as string,
@@ -453,6 +624,86 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case 'create_feature': {
+        const result = await reviewManager.createFeature({
+          featureSlug: args.featureSlug as string,
+          featureName: args.featureName as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_task': {
+        const result = await reviewManager.addTask({
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          title: args.title as string,
+          description: args.description as string,
+          orderOfExecution: args.orderOfExecution as number,
+          acceptanceCriteria: args.acceptanceCriteria as any,
+          testScenarios: args.testScenarios as any,
+          outOfScope: args.outOfScope as string[],
+          estimatedHours: args.estimatedHours as number | undefined,
+          dependencies: args.dependencies as string[],
+          tags: args.tags as string[],
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'list_features': {
+        const result = await reviewManager.listFeatures();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'delete_feature': {
+        const result = await reviewManager.deleteFeature(args.featureSlug as string);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_feature': {
+        const result = await reviewManager.getFeature(args.featureSlug as string);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -479,7 +730,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   // Start dashboard server on port 5111
   startDashboard(5111);
-  
+
   // Start MCP server on stdio
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -490,4 +741,3 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-

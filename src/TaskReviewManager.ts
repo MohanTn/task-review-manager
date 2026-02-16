@@ -10,19 +10,31 @@ import {
   Transition,
   TaskStatus,
   StakeholderRole,
+  PipelineRole,
+  Task,
   TransitionTaskInput,
   TransitionTaskResult,
   GetNextTaskInput,
   GetNextTaskResult,
+  GetNextStepInput,
+  GetNextStepResult,
   UpdateAcceptanceCriteriaInput,
   UpdateAcceptanceCriteriaResult,
   GetTasksByStatusInput,
   GetTasksByStatusResult,
   VerifyAllTasksCompleteInput,
   VerifyAllTasksCompleteResult,
+  CreateFeatureInput,
+  CreateFeatureResult,
+  AddTaskInput,
+  AddTaskResult,
+  ListFeaturesResult,
+  DeleteFeatureResult,
+  GetFeatureResult,
 } from './types.js';
 import { DatabaseHandler } from './DatabaseHandler.js';
 import { WorkflowValidator } from './WorkflowValidator.js';
+import { ROLE_SYSTEM_PROMPTS } from './rolePrompts.js';
 
 export class TaskReviewManager {
   private dbHandler: DatabaseHandler;
@@ -95,10 +107,11 @@ export class TaskReviewManager {
       };
 
       // Add role-specific fields
-      if (input.stakeholder === 'productDirector' && input.additionalFields?.marketAnalysis) {
+      if (input.stakeholder === 'productDirector') {
         task.stakeholderReview.productDirector = {
           ...reviewData,
-          marketAnalysis: input.additionalFields.marketAnalysis,
+          marketAnalysis: input.additionalFields?.marketAnalysis,
+          competitorAnalysis: input.additionalFields?.competitorAnalysis,
         };
       } else if (input.stakeholder === 'architect') {
         task.stakeholderReview.architect = {
@@ -106,26 +119,20 @@ export class TaskReviewManager {
           technologyRecommendations: input.additionalFields?.technologyRecommendations,
           designPatterns: input.additionalFields?.designPatterns,
         };
-      } else if (input.stakeholder === 'leadEngineer') {
-        task.stakeholderReview.leadEngineer = {
+      } else if (input.stakeholder === 'uiUxExpert') {
+        task.stakeholderReview.uiUxExpert = {
           ...reviewData,
-          resourcePlan: input.additionalFields?.resourcePlan,
-          implementationPhases: input.additionalFields?.implementationPhases,
+          usabilityFindings: input.additionalFields?.usabilityFindings,
+          accessibilityRequirements: input.additionalFields?.accessibilityRequirements,
+          userBehaviorInsights: input.additionalFields?.userBehaviorInsights,
         };
-      } else if (input.stakeholder === 'cfo') {
-        task.stakeholderReview.cfo = {
-          ...reviewData,
-          costAnalysis: input.additionalFields?.costAnalysis,
-          revenueOptimization: input.additionalFields?.revenueOptimization,
-        };
-      } else if (input.stakeholder === 'cso') {
-        task.stakeholderReview.cso = {
+      } else if (input.stakeholder === 'securityOfficer') {
+        task.stakeholderReview.securityOfficer = {
           ...reviewData,
           securityRequirements: input.additionalFields?.securityRequirements,
           complianceNotes: input.additionalFields?.complianceNotes,
         };
       } else {
-        // Fallback for productDirector without marketAnalysis
         (task.stakeholderReview as any)[input.stakeholder] = reviewData;
       }
 
@@ -142,15 +149,15 @@ export class TaskReviewManager {
         previousStatus,
         newStatus: newStatus as TaskStatus,
         transition,
-        message: validation.warnings.length > 0 
-          ? `Review recorded with warnings: ${validation.warnings.join(', ')}` 
+        message: validation.warnings.length > 0
+          ? `Review recorded with warnings: ${validation.warnings.join(', ')}`
           : 'Review recorded successfully',
       };
     } catch (error) {
       return {
         success: false,
         taskId: input.taskId,
-        previousStatus: 'PendingProductDirector' as TaskStatus, // Default fallback
+        previousStatus: 'PendingProductDirector' as TaskStatus,
         newStatus: 'PendingProductDirector' as TaskStatus,
         transition: {
           from: 'PendingProductDirector' as TaskStatus,
@@ -169,19 +176,14 @@ export class TaskReviewManager {
    */
   async getTaskStatus(featureSlug: string, taskId: string): Promise<TaskStatusResult> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
 
-      // Find task
       const task = taskFile.tasks.find((t) => t.taskId === taskId);
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
       }
 
-      // Get review progress
       const progress = this.validator.getReviewProgress(task);
-
-      // Get allowed transitions
       const allowedTransitions = this.validator.getAllowedTransitions(task.status);
 
       return {
@@ -205,16 +207,14 @@ export class TaskReviewManager {
    */
   async getReviewSummary(featureSlug: string): Promise<ReviewSummary> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
 
       // Count tasks by status
       const tasksByStatus: Record<TaskStatus, number> = {
         PendingProductDirector: 0,
         PendingArchitect: 0,
-        PendingLeadEngineer: 0,
-        PendingCFO: 0,
-        PendingCSO: 0,
+        PendingUiUxExpert: 0,
+        PendingSecurityOfficer: 0,
         ReadyForDevelopment: 0,
         NeedsRefinement: 0,
         ToDo: 0,
@@ -229,9 +229,8 @@ export class TaskReviewManager {
       const stakeholderProgress = {
         productDirector: { completed: 0, pending: 0 },
         architect: { completed: 0, pending: 0 },
-        leadEngineer: { completed: 0, pending: 0 },
-        cfo: { completed: 0, pending: 0 },
-        cso: { completed: 0, pending: 0 },
+        uiUxExpert: { completed: 0, pending: 0 },
+        securityOfficer: { completed: 0, pending: 0 },
       };
 
       // Analyze each task
@@ -287,16 +286,13 @@ export class TaskReviewManager {
     stakeholder: StakeholderRole
   ): Promise<ValidationResult> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
 
-      // Find task
       const task = taskFile.tasks.find((t) => t.taskId === taskId);
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
       }
 
-      // Validate workflow for approve decision (most common case)
       return this.validator.validate(task.status, stakeholder, 'approve');
     } catch (error) {
       return {
@@ -316,10 +312,9 @@ export class TaskReviewManager {
   private getApprovalStatus(currentStatus: TaskStatus): TaskStatus {
     const statusMap: Record<TaskStatus, TaskStatus> = {
       PendingProductDirector: 'PendingArchitect',
-      PendingArchitect: 'PendingLeadEngineer',
-      PendingLeadEngineer: 'PendingCFO',
-      PendingCFO: 'PendingCSO',
-      PendingCSO: 'ReadyForDevelopment',
+      PendingArchitect: 'PendingUiUxExpert',
+      PendingUiUxExpert: 'PendingSecurityOfficer',
+      PendingSecurityOfficer: 'ReadyForDevelopment',
       ReadyForDevelopment: 'ReadyForDevelopment',
       NeedsRefinement: 'NeedsRefinement',
       ToDo: 'ToDo',
@@ -330,6 +325,188 @@ export class TaskReviewManager {
       Done: 'Done',
     };
     return statusMap[currentStatus];
+  }
+
+  /**
+   * Get the next step in the pipeline for a task.
+   * Returns the role, system prompt, allowed decisions, and context.
+   */
+  async getNextStep(input: GetNextStepInput): Promise<GetNextStepResult> {
+    try {
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
+      if (!task) {
+        throw new Error(`Task not found: ${input.taskId}`);
+      }
+
+      const status = task.status;
+
+      // Map current status to the pipeline role that should act
+      const roleMapping: Record<TaskStatus, PipelineRole | null> = {
+        PendingProductDirector: 'productDirector',
+        PendingArchitect: 'architect',
+        PendingUiUxExpert: 'uiUxExpert',
+        PendingSecurityOfficer: 'securityOfficer',
+        ReadyForDevelopment: 'developer',
+        ToDo: 'developer',
+        InProgress: 'developer',
+        InReview: 'codeReviewer',
+        InQA: 'qa',
+        NeedsChanges: 'developer',
+        NeedsRefinement: 'productDirector',
+        Done: null,
+      };
+
+      const nextRole = roleMapping[status];
+      if (!nextRole) {
+        return {
+          success: true,
+          taskId: input.taskId,
+          currentStatus: status,
+          phase: 'execution',
+          nextRole: 'qa',
+          systemPrompt: '',
+          allowedDecisions: [],
+          transitionOnSuccess: 'Done',
+          transitionOnFailure: 'Done',
+          focusAreas: [],
+          researchInstructions: '',
+          requiredOutputFields: [],
+          previousRoleNotes: {},
+          message: 'Task is complete. No further steps.',
+        };
+      }
+
+      const roleConfig = ROLE_SYSTEM_PROMPTS[nextRole];
+
+      // Determine transitions based on current status
+      const { transitionOnSuccess, transitionOnFailure, allowedDecisions } =
+        this.getTransitionsForStatus(status);
+
+      // Gather previous role notes for context
+      const previousRoleNotes = this.gatherPreviousNotes(task);
+
+      // Build context-enhanced system prompt
+      const contextualPrompt = this.buildContextualPrompt(
+        roleConfig.systemPrompt, task, previousRoleNotes
+      );
+
+      return {
+        success: true,
+        taskId: input.taskId,
+        currentStatus: status,
+        phase: roleConfig.phase,
+        nextRole,
+        systemPrompt: contextualPrompt,
+        allowedDecisions,
+        transitionOnSuccess,
+        transitionOnFailure,
+        focusAreas: roleConfig.focusAreas,
+        researchInstructions: roleConfig.researchInstructions,
+        requiredOutputFields: roleConfig.requiredOutputFields,
+        previousRoleNotes,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        taskId: input.taskId,
+        currentStatus: 'PendingProductDirector',
+        phase: 'review',
+        nextRole: 'productDirector',
+        systemPrompt: '',
+        allowedDecisions: [],
+        transitionOnSuccess: 'PendingProductDirector',
+        transitionOnFailure: 'PendingProductDirector',
+        focusAreas: [],
+        researchInstructions: '',
+        requiredOutputFields: [],
+        previousRoleNotes: {},
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get transition targets for a given status
+   */
+  private getTransitionsForStatus(status: TaskStatus): {
+    transitionOnSuccess: TaskStatus;
+    transitionOnFailure: TaskStatus;
+    allowedDecisions: string[];
+  } {
+    const map: Record<TaskStatus, { transitionOnSuccess: TaskStatus; transitionOnFailure: TaskStatus; allowedDecisions: string[] }> = {
+      PendingProductDirector: { transitionOnSuccess: 'PendingArchitect', transitionOnFailure: 'NeedsRefinement', allowedDecisions: ['approve', 'reject'] },
+      PendingArchitect: { transitionOnSuccess: 'PendingUiUxExpert', transitionOnFailure: 'NeedsRefinement', allowedDecisions: ['approve', 'reject'] },
+      PendingUiUxExpert: { transitionOnSuccess: 'PendingSecurityOfficer', transitionOnFailure: 'NeedsRefinement', allowedDecisions: ['approve', 'reject'] },
+      PendingSecurityOfficer: { transitionOnSuccess: 'ReadyForDevelopment', transitionOnFailure: 'NeedsRefinement', allowedDecisions: ['approve', 'reject'] },
+      NeedsRefinement: { transitionOnSuccess: 'PendingProductDirector', transitionOnFailure: 'PendingProductDirector', allowedDecisions: ['restart'] },
+      ReadyForDevelopment: { transitionOnSuccess: 'ToDo', transitionOnFailure: 'ToDo', allowedDecisions: ['start'] },
+      ToDo: { transitionOnSuccess: 'InProgress', transitionOnFailure: 'InProgress', allowedDecisions: ['start'] },
+      InProgress: { transitionOnSuccess: 'InReview', transitionOnFailure: 'InProgress', allowedDecisions: ['submitForReview'] },
+      InReview: { transitionOnSuccess: 'InQA', transitionOnFailure: 'NeedsChanges', allowedDecisions: ['approve', 'reject'] },
+      InQA: { transitionOnSuccess: 'Done', transitionOnFailure: 'NeedsChanges', allowedDecisions: ['approve', 'reject'] },
+      NeedsChanges: { transitionOnSuccess: 'InProgress', transitionOnFailure: 'InProgress', allowedDecisions: ['startFix'] },
+      Done: { transitionOnSuccess: 'Done', transitionOnFailure: 'Done', allowedDecisions: [] },
+    };
+    return map[status];
+  }
+
+  /**
+   * Gather notes from all previous roles for context
+   */
+  private gatherPreviousNotes(task: Task): Record<string, string> {
+    const notes: Record<string, string> = {};
+    if (task.stakeholderReview.productDirector?.notes) {
+      notes.productDirector = task.stakeholderReview.productDirector.notes;
+    }
+    if (task.stakeholderReview.architect?.notes) {
+      notes.architect = task.stakeholderReview.architect.notes;
+    }
+    if (task.stakeholderReview.uiUxExpert?.notes) {
+      notes.uiUxExpert = task.stakeholderReview.uiUxExpert.notes;
+    }
+    if (task.stakeholderReview.securityOfficer?.notes) {
+      notes.securityOfficer = task.stakeholderReview.securityOfficer.notes;
+    }
+    return notes;
+  }
+
+  /**
+   * Build a context-enhanced system prompt with task details
+   */
+  private buildContextualPrompt(
+    basePrompt: string,
+    task: Task,
+    previousNotes: Record<string, string>
+  ): string {
+    let contextBlock = `\n\n## Task Context\n`;
+    contextBlock += `- **Task ID**: ${task.taskId}\n`;
+    contextBlock += `- **Title**: ${task.title}\n`;
+    contextBlock += `- **Description**: ${task.description}\n`;
+    contextBlock += `- **Current Status**: ${task.status}\n`;
+
+    if (task.acceptanceCriteria.length > 0) {
+      contextBlock += `\n## Acceptance Criteria\n`;
+      for (const ac of task.acceptanceCriteria) {
+        contextBlock += `- [${ac.verified ? 'x' : ' '}] (${ac.priority}) ${ac.criterion}\n`;
+      }
+    }
+
+    if (task.testScenarios && task.testScenarios.length > 0) {
+      contextBlock += `\n## Test Scenarios\n`;
+      for (const ts of task.testScenarios) {
+        contextBlock += `- **${ts.id}** (${ts.priority}): ${ts.title} - ${ts.description}\n`;
+      }
+    }
+
+    if (Object.keys(previousNotes).length > 0) {
+      contextBlock += `\n## Previous Stakeholder Notes\n`;
+      for (const [role, note] of Object.entries(previousNotes)) {
+        contextBlock += `### ${role}\n${note}\n\n`;
+      }
+    }
+
+    return basePrompt + contextBlock;
   }
 
   /**
@@ -421,10 +598,8 @@ export class TaskReviewManager {
    */
   async getNextTask(input: GetNextTaskInput): Promise<GetNextTaskResult> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
 
-      // Filter tasks by status
       const filteredTasks = taskFile.tasks.filter((t) =>
         input.statusFilter.includes(t.status)
       );
@@ -437,7 +612,6 @@ export class TaskReviewManager {
         };
       }
 
-      // Sort by orderOfExecution and get the first one
       const sortedTasks = filteredTasks.sort((a, b) => a.orderOfExecution - b.orderOfExecution);
       const nextTask = sortedTasks[0];
 
@@ -462,22 +636,18 @@ export class TaskReviewManager {
     input: UpdateAcceptanceCriteriaInput
   ): Promise<UpdateAcceptanceCriteriaResult> {
     try {
-      // 1. Validate file exists
       const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
       if (!fileValidation.valid) {
         throw new Error(`Invalid task file: ${fileValidation.error}`);
       }
 
-      // 2. Load task file with lock
       const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug);
 
-      // 3. Find specific task
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
       if (!task) {
         throw new Error(`Task not found: ${input.taskId}`);
       }
 
-      // 4. Find acceptance criterion
       const criterion = task.acceptanceCriteria.find((ac) => ac.id === input.criterionId);
       if (!criterion) {
         throw new Error(
@@ -485,10 +655,8 @@ export class TaskReviewManager {
         );
       }
 
-      // 5. Update verification status
       criterion.verified = input.verified;
 
-      // 6. Save atomically
       await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile);
 
       return {
@@ -514,10 +682,8 @@ export class TaskReviewManager {
    */
   async getTasksByStatus(input: GetTasksByStatusInput): Promise<GetTasksByStatusResult> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
 
-      // Filter tasks by status
       const tasks = taskFile.tasks.filter((t) => t.status === input.status);
 
       return {
@@ -543,7 +709,6 @@ export class TaskReviewManager {
     input: VerifyAllTasksCompleteInput
   ): Promise<VerifyAllTasksCompleteResult> {
     try {
-      // Load task file (read-only)
       const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
 
       const totalTasks = taskFile.tasks.length;
@@ -575,6 +740,120 @@ export class TaskReviewManager {
         totalTasks: 0,
         completedTasks: 0,
         incompleteTasks: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Create a new feature
+   */
+  async createFeature(input: CreateFeatureInput): Promise<CreateFeatureResult> {
+    try {
+      this.dbHandler.createFeature(input.featureSlug, input.featureName);
+      return {
+        success: true,
+        featureSlug: input.featureSlug,
+        message: `Feature '${input.featureName}' created with slug '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug: input.featureSlug,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Add a task to a feature
+   */
+  async addTask(input: AddTaskInput): Promise<AddTaskResult> {
+    try {
+      const task: Partial<Task> = {
+        taskId: input.taskId,
+        title: input.title,
+        description: input.description,
+        orderOfExecution: input.orderOfExecution,
+        acceptanceCriteria: input.acceptanceCriteria,
+        testScenarios: input.testScenarios,
+        outOfScope: input.outOfScope,
+        estimatedHours: input.estimatedHours,
+        dependencies: input.dependencies || [],
+        tags: input.tags,
+      };
+
+      const taskId = this.dbHandler.addTask(input.featureSlug, task);
+      return {
+        success: true,
+        featureSlug: input.featureSlug,
+        taskId,
+        message: `Task '${taskId}' added to feature '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug: input.featureSlug,
+        taskId: input.taskId,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * List all features
+   */
+  async listFeatures(): Promise<ListFeaturesResult> {
+    try {
+      const features = this.dbHandler.getAllFeatures();
+      return {
+        success: true,
+        features,
+        message: `Found ${features.length} feature(s)`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        features: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Delete a feature and all its tasks
+   */
+  async deleteFeature(featureSlug: string): Promise<DeleteFeatureResult> {
+    try {
+      this.dbHandler.deleteFeature(featureSlug);
+      return {
+        success: true,
+        featureSlug,
+        message: `Feature '${featureSlug}' deleted successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get a complete feature with all tasks
+   */
+  async getFeature(featureSlug: string): Promise<GetFeatureResult> {
+    try {
+      const feature = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      return {
+        success: true,
+        feature,
+        message: `Feature '${featureSlug}' loaded with ${feature.tasks.length} task(s)`,
+      };
+    } catch (error) {
+      return {
+        success: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }

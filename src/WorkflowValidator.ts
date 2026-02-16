@@ -119,9 +119,8 @@ export class WorkflowValidator {
     const allStakeholders: StakeholderRole[] = [
       'productDirector',
       'architect',
-      'leadEngineer',
-      'cfo',
-      'cso',
+      'uiUxExpert',
+      'securityOfficer',
     ];
 
     const completed: StakeholderRole[] = [];
@@ -140,22 +139,16 @@ export class WorkflowValidator {
       pending.push('architect');
     }
 
-    if (task.stakeholderReview.leadEngineer?.approved) {
-      completed.push('leadEngineer');
-    } else if (task.status === 'PendingLeadEngineer') {
-      pending.push('leadEngineer');
+    if (task.stakeholderReview.uiUxExpert?.approved) {
+      completed.push('uiUxExpert');
+    } else if (task.status === 'PendingUiUxExpert') {
+      pending.push('uiUxExpert');
     }
 
-    if (task.stakeholderReview.cfo?.approved) {
-      completed.push('cfo');
-    } else if (task.status === 'PendingCFO') {
-      pending.push('cfo');
-    }
-
-    if (task.stakeholderReview.cso?.approved) {
-      completed.push('cso');
-    } else if (task.status === 'PendingCSO') {
-      pending.push('cso');
+    if (task.stakeholderReview.securityOfficer?.approved) {
+      completed.push('securityOfficer');
+    } else if (task.status === 'PendingSecurityOfficer') {
+      pending.push('securityOfficer');
     }
 
     // Determine remaining pending reviews

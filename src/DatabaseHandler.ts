@@ -23,8 +23,9 @@ export class DatabaseHandler {
     
     this.db = new Database(finalDbPath);
     this.db.pragma('journal_mode = WAL'); // Better concurrency
-    
+
     this.initializeTables();
+    this.migrateOldRoles();
   }
 
   /**
@@ -121,6 +122,40 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_test_scenarios_task ON test_scenarios(feature_slug, task_id);
       CREATE INDEX IF NOT EXISTS idx_stakeholder_reviews_task ON stakeholder_reviews(feature_slug, task_id);
     `);
+  }
+
+  /**
+   * Migrate old role names and statuses to new pipeline roles.
+   * Runs once on startup; idempotent (safe to re-run).
+   */
+  private migrateOldRoles(): void {
+    const migrate = this.db.transaction(() => {
+      // Migrate task statuses
+      this.db.prepare(`UPDATE tasks SET status = 'PendingUiUxExpert' WHERE status = 'PendingLeadEngineer'`).run();
+      this.db.prepare(`UPDATE tasks SET status = 'PendingSecurityOfficer' WHERE status IN ('PendingCFO', 'PendingCSO')`).run();
+
+      // Migrate transition statuses
+      this.db.prepare(`UPDATE transitions SET from_status = 'PendingUiUxExpert' WHERE from_status = 'PendingLeadEngineer'`).run();
+      this.db.prepare(`UPDATE transitions SET to_status = 'PendingUiUxExpert' WHERE to_status = 'PendingLeadEngineer'`).run();
+      this.db.prepare(`UPDATE transitions SET from_status = 'PendingSecurityOfficer' WHERE from_status IN ('PendingCFO', 'PendingCSO')`).run();
+      this.db.prepare(`UPDATE transitions SET to_status = 'PendingSecurityOfficer' WHERE to_status IN ('PendingCFO', 'PendingCSO')`).run();
+
+      // Migrate approver/actor role names in transitions
+      this.db.prepare(`UPDATE transitions SET approver = 'uiUxExpert' WHERE approver = 'leadEngineer'`).run();
+      this.db.prepare(`UPDATE transitions SET approver = 'securityOfficer' WHERE approver IN ('cfo', 'cso')`).run();
+      this.db.prepare(`UPDATE transitions SET actor = 'uiUxExpert' WHERE actor = 'leadEngineer'`).run();
+      this.db.prepare(`UPDATE transitions SET actor = 'securityOfficer' WHERE actor IN ('cfo', 'cso')`).run();
+      this.db.prepare(`UPDATE transitions SET actor = 'codeReviewer' WHERE actor = 'reviewer'`).run();
+
+      // Migrate stakeholder review role names
+      this.db.prepare(`UPDATE stakeholder_reviews SET stakeholder = 'uiUxExpert' WHERE stakeholder = 'leadEngineer'`).run();
+      this.db.prepare(`UPDATE stakeholder_reviews SET stakeholder = 'securityOfficer' WHERE stakeholder IN ('cfo', 'cso')`).run();
+
+      // Remove orphaned CFO reviews (no direct equivalent in new pipeline)
+      this.db.prepare(`DELETE FROM stakeholder_reviews WHERE stakeholder = 'cfo'`).run();
+    });
+
+    migrate();
   }
 
   /**
@@ -499,7 +534,7 @@ export class DatabaseHandler {
   /**
    * Add a task to a feature
    */
-  addTask(featureSlug: string, task: Partial<Task>): void {
+  addTask(featureSlug: string, task: Partial<Task>): string {
     const now = new Date().toISOString();
 
     // Ensure feature exists
@@ -565,5 +600,7 @@ export class DatabaseHandler {
     this.db.prepare(`
       UPDATE features SET last_modified = ? WHERE feature_slug = ?
     `).run(now, featureSlug);
+
+    return taskId;
   }
 }
