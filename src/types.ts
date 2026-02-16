@@ -447,3 +447,43 @@ export interface GetFeatureResult {
   message?: string;
   error?: string;
 }
+
+// Update and Delete Task types
+
+export interface UpdateTaskInput {
+  featureSlug: string;
+  taskId: string;
+  updates: {
+    title?: string;
+    description?: string;
+    orderOfExecution?: number;
+    acceptanceCriteria?: AcceptanceCriterion[];
+    testScenarios?: TestScenario[];
+    outOfScope?: string[];
+    estimatedHours?: number;
+    dependencies?: string[];
+    tags?: string[];
+    // Note: status updates should go through transition_task_status tool
+  };
+}
+
+export interface UpdateTaskResult {
+  success: boolean;
+  featureSlug: string;
+  taskId: string;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteTaskInput {
+  featureSlug: string;
+  taskId: string;
+}
+
+export interface DeleteTaskResult {
+  success: boolean;
+  featureSlug: string;
+  taskId: string;
+  message?: string;
+  error?: string;
+}

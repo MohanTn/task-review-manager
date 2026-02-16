@@ -603,4 +603,146 @@ export class DatabaseHandler {
 
     return taskId;
   }
+
+  /**
+   * Update specific fields of a task
+   */
+  updateTask(featureSlug: string, taskId: string, updates: Partial<Task>): void {
+    const now = new Date().toISOString();
+
+    const updateTransaction = this.db.transaction(() => {
+      // Verify feature exists
+      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
+      if (!feature) {
+        throw new Error(`Feature not found: ${featureSlug}`);
+      }
+
+      // Verify task exists
+      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE feature_slug = ? AND task_id = ?`).get(featureSlug, taskId);
+      if (!task) {
+        throw new Error(`Task not found: ${taskId}`);
+      }
+
+      // Update basic task fields if provided
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (updates.title !== undefined) {
+        updateFields.push('title = ?');
+        updateValues.push(updates.title);
+      }
+      if (updates.description !== undefined) {
+        updateFields.push('description = ?');
+        updateValues.push(updates.description);
+      }
+      if (updates.orderOfExecution !== undefined) {
+        updateFields.push('order_of_execution = ?');
+        updateValues.push(updates.orderOfExecution);
+      }
+      if (updates.estimatedHours !== undefined) {
+        updateFields.push('estimated_hours = ?');
+        updateValues.push(updates.estimatedHours);
+      }
+      if (updates.tags !== undefined) {
+        updateFields.push('tags = ?');
+        updateValues.push(JSON.stringify(updates.tags));
+      }
+      if (updates.dependencies !== undefined) {
+        updateFields.push('dependencies = ?');
+        updateValues.push(JSON.stringify(updates.dependencies));
+      }
+      if (updates.outOfScope !== undefined) {
+        updateFields.push('out_of_scope = ?');
+        updateValues.push(JSON.stringify(updates.outOfScope));
+      }
+
+      // Only execute update if there are fields to update
+      if (updateFields.length > 0) {
+        updateValues.push(featureSlug, taskId);
+        this.db.prepare(`
+          UPDATE tasks
+          SET ${updateFields.join(', ')}
+          WHERE feature_slug = ? AND task_id = ?
+        `).run(...updateValues);
+      }
+
+      // Handle acceptance criteria - delete old and insert new
+      if (updates.acceptanceCriteria !== undefined) {
+        this.db.prepare(`
+          DELETE FROM acceptance_criteria WHERE feature_slug = ? AND task_id = ?
+        `).run(featureSlug, taskId);
+
+        for (const criterion of updates.acceptanceCriteria) {
+          this.db.prepare(`
+            INSERT INTO acceptance_criteria (
+              feature_slug, task_id, criterion_id, criterion, priority, verified
+            ) VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            featureSlug, taskId,
+            criterion.id, criterion.criterion, criterion.priority,
+            criterion.verified ? 1 : 0
+          );
+        }
+      }
+
+      // Handle test scenarios - delete old and insert new
+      if (updates.testScenarios !== undefined) {
+        this.db.prepare(`
+          DELETE FROM test_scenarios WHERE feature_slug = ? AND task_id = ?
+        `).run(featureSlug, taskId);
+
+        for (const scenario of updates.testScenarios) {
+          this.db.prepare(`
+            INSERT INTO test_scenarios (
+              feature_slug, task_id, scenario_id, title, description, manual_only, priority
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            featureSlug, taskId,
+            scenario.id, scenario.title, scenario.description,
+            scenario.manualOnly ? 1 : 0, scenario.priority
+          );
+        }
+      }
+
+      // Update feature last_modified
+      this.db.prepare(`
+        UPDATE features SET last_modified = ? WHERE feature_slug = ?
+      `).run(now, featureSlug);
+    });
+
+    updateTransaction();
+  }
+
+  /**
+   * Delete a task from a feature
+   */
+  deleteTask(featureSlug: string, taskId: string): void {
+    const now = new Date().toISOString();
+
+    const deleteTransaction = this.db.transaction(() => {
+      // Verify feature exists
+      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
+      if (!feature) {
+        throw new Error(`Feature not found: ${featureSlug}`);
+      }
+
+      // Verify task exists before deletion
+      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE feature_slug = ? AND task_id = ?`).get(featureSlug, taskId);
+      if (!task) {
+        throw new Error(`Task not found: ${taskId}`);
+      }
+
+      // Delete task (CASCADE will automatically delete related data)
+      this.db.prepare(`
+        DELETE FROM tasks WHERE feature_slug = ? AND task_id = ?
+      `).run(featureSlug, taskId);
+
+      // Update feature last_modified
+      this.db.prepare(`
+        UPDATE features SET last_modified = ? WHERE feature_slug = ?
+      `).run(now, featureSlug);
+    });
+
+    deleteTransaction();
+  }
 }

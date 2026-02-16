@@ -31,6 +31,9 @@ import {
   ListFeaturesResult,
   DeleteFeatureResult,
   GetFeatureResult,
+  UpdateTaskInput,
+  UpdateTaskResult,
+  DeleteTaskResult,
 } from './types.js';
 import { DatabaseHandler } from './DatabaseHandler.js';
 import { WorkflowValidator } from './WorkflowValidator.js';
@@ -854,6 +857,101 @@ export class TaskReviewManager {
     } catch (error) {
       return {
         success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Update an existing task
+   */
+  async updateTask(input: UpdateTaskInput): Promise<UpdateTaskResult> {
+    try {
+      // Validate feature exists
+      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
+      if (!fileValidation.valid) {
+        throw new Error(`Invalid feature: ${fileValidation.error}`);
+      }
+
+      // Load task to verify it exists
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
+      if (!task) {
+        throw new Error(`Task not found: ${input.taskId}`);
+      }
+
+      // Validate updates - ensure we're not trying to update status here
+      if ('status' in input.updates) {
+        throw new Error('Cannot update task status via update_task. Use transition_task_status instead.');
+      }
+
+      // Validate that we have at least one field to update
+      if (Object.keys(input.updates).length === 0) {
+        throw new Error('No fields to update');
+      }
+
+      // Perform the update
+      this.dbHandler.updateTask(input.featureSlug, input.taskId, input.updates as Partial<Task>);
+
+      return {
+        success: true,
+        featureSlug: input.featureSlug,
+        taskId: input.taskId,
+        message: `Task '${input.taskId}' updated successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug: input.featureSlug,
+        taskId: input.taskId,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Delete a task
+   */
+  async deleteTask(featureSlug: string, taskId: string): Promise<DeleteTaskResult> {
+    try {
+      // Validate feature exists
+      const fileValidation = await this.dbHandler.validateFeatureSlug(featureSlug);
+      if (!fileValidation.valid) {
+        throw new Error(`Invalid feature: ${fileValidation.error}`);
+      }
+
+      // Load task file to check for dependencies
+      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const task = taskFile.tasks.find((t) => t.taskId === taskId);
+      if (!task) {
+        throw new Error(`Task not found: ${taskId}`);
+      }
+
+      // Check if other tasks depend on this one
+      const dependentTasks = taskFile.tasks.filter((t) =>
+        t.dependencies && t.dependencies.includes(taskId)
+      );
+
+      // Perform deletion
+      this.dbHandler.deleteTask(featureSlug, taskId);
+
+      let message = `Task '${taskId}' deleted successfully`;
+      if (dependentTasks.length > 0) {
+        const depIds = dependentTasks.map((t) => t.taskId).join(', ');
+        message += `. Warning: ${dependentTasks.length} task(s) had dependencies on this task: ${depIds}`;
+      }
+
+      return {
+        success: true,
+        featureSlug,
+        taskId,
+        message,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug,
+        taskId,
         error: error instanceof Error ? error.message : String(error),
       };
     }

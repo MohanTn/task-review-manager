@@ -425,6 +425,97 @@ const TOOLS = [
       required: ['featureSlug'],
     },
   },
+  {
+    name: 'update_task',
+    description:
+      'Update an existing task within a feature. Allows modifying task properties like title, description, acceptance criteria, test scenarios, etc. Use this when requirements change during refinement. Note: Cannot update task status - use transition_task_status for status changes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        taskId: {
+          type: 'string',
+          description: 'Task ID to update',
+        },
+        updates: {
+          type: 'object',
+          description: 'Fields to update',
+          properties: {
+            title: { type: 'string', description: 'Task title' },
+            description: { type: 'string', description: 'Task description' },
+            orderOfExecution: { type: 'number', description: 'Execution order' },
+            estimatedHours: { type: 'number', description: 'Estimated hours' },
+            acceptanceCriteria: {
+              type: 'array',
+              description: 'Acceptance criteria',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  criterion: { type: 'string' },
+                  priority: { type: 'string', enum: ['Must Have', 'Should Have', 'Could Have'] },
+                },
+                required: ['id', 'criterion', 'priority'],
+              },
+            },
+            testScenarios: {
+              type: 'array',
+              description: 'Test scenarios',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  title: { type: 'string' },
+                  description: { type: 'string' },
+                  manualOnly: { type: 'boolean' },
+                  priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+                },
+                required: ['id', 'title', 'description', 'priority'],
+              },
+            },
+            outOfScope: {
+              type: 'array',
+              description: 'Out of scope items',
+              items: { type: 'string' },
+            },
+            dependencies: {
+              type: 'array',
+              description: 'Task dependencies',
+              items: { type: 'string' },
+            },
+            tags: {
+              type: 'array',
+              description: 'Task tags',
+              items: { type: 'string' },
+            },
+          },
+        },
+      },
+      required: ['featureSlug', 'taskId', 'updates'],
+    },
+  },
+  {
+    name: 'delete_task',
+    description:
+      'Delete a task from a feature. This removes the task and all associated data (transitions, reviews, criteria). Use this when a task is no longer needed. Warning: This operation cannot be undone.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        taskId: {
+          type: 'string',
+          description: 'Task ID to delete',
+        },
+      },
+      required: ['featureSlug', 'taskId'],
+    },
+  },
 ];
 
 // List tools handler
@@ -693,6 +784,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_feature': {
         const result = await reviewManager.getFeature(args.featureSlug as string);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_task': {
+        const result = await reviewManager.updateTask({
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          updates: args.updates as any,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'delete_task': {
+        const result = await reviewManager.deleteTask(
+          args.featureSlug as string,
+          args.taskId as string
+        );
 
         return {
           content: [

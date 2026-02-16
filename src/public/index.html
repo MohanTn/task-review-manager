@@ -212,8 +212,31 @@
             cursor: pointer;
             transition: background .1s;
             border-left: 3px solid transparent;
+            position: relative;
         }
         .task-card:hover { background: var(--card-hover); }
+        .task-card:hover .task-card-actions { opacity: 1; }
+        .task-card-actions {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity .15s;
+        }
+        .task-card-action-btn {
+            background: rgba(255,255,255,0.95);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 3px 6px;
+            font-size: 11px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .task-card-action-btn:hover { background: #fff; color: var(--primary); }
+        .task-card-action-btn.danger:hover { color: var(--danger); }
         .task-card-id {
             font-size: 11px;
             font-weight: 600;
@@ -675,6 +698,82 @@
     </div>
 </div>
 
+<!-- ── Edit Task Modal ── -->
+<div class="modal-overlay" id="editTaskModal">
+    <div class="modal" style="width:640px;max-height:85vh;overflow-y:auto;">
+        <div class="modal-header">
+            <h3>Edit Task <span id="editTaskIdLabel"></span></h3>
+            <button class="modal-close" onclick="closeModal('editTaskModal')">&#10005;</button>
+        </div>
+        <form onsubmit="saveTaskEdits(event)">
+            <div class="modal-body">
+                <div class="field">
+                    <label>Title</label>
+                    <input type="text" id="editTaskTitle" required>
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <textarea id="editTaskDescription" rows="4"></textarea>
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <div class="field" style="flex:1;">
+                        <label>Order of Execution</label>
+                        <input type="number" id="editTaskOrder" required min="0">
+                    </div>
+                    <div class="field" style="flex:1;">
+                        <label>Estimated Hours</label>
+                        <input type="number" id="editTaskHours" min="0" step="0.5" placeholder="--">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Tags (comma-separated)</label>
+                    <input type="text" id="editTaskTags" placeholder="frontend, api, database">
+                </div>
+                <div class="field">
+                    <label>Dependencies (comma-separated task IDs)</label>
+                    <input type="text" id="editTaskDependencies" placeholder="T01, T02">
+                </div>
+                <div class="field">
+                    <label>Out of Scope (one per line)</label>
+                    <textarea id="editTaskOutOfScope" rows="3" placeholder="Item 1&#10;Item 2"></textarea>
+                </div>
+                <div class="field">
+                    <label>Acceptance Criteria</label>
+                    <div id="editAcceptanceCriteriaList"></div>
+                    <button type="button" class="btn btn-subtle" style="margin-top:8px;" onclick="addCriterionRow()">+ Add Criterion</button>
+                </div>
+                <div class="field">
+                    <label>Test Scenarios</label>
+                    <div id="editTestScenariosList"></div>
+                    <button type="button" class="btn btn-subtle" style="margin-top:8px;" onclick="addScenarioRow()">+ Add Scenario</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-subtle" onclick="closeModal('editTaskModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── Delete Task Confirmation Modal ── -->
+<div class="modal-overlay" id="deleteTaskModal">
+    <div class="modal" style="width:440px;">
+        <div class="modal-header">
+            <h3>Delete Task</h3>
+            <button class="modal-close" onclick="closeModal('deleteTaskModal')">&#10005;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px;">Are you sure you want to delete task <strong id="deleteTaskId"></strong>: <strong id="deleteTaskTitle"></strong>?</p>
+            <p style="font-size:12px;color:var(--text-secondary);">This will remove all associated data (transitions, reviews, criteria) and cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-subtle" onclick="closeModal('deleteTaskModal')">Cancel</button>
+            <button class="btn btn-danger" onclick="confirmDeleteTask()">Delete Task</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Task Detail Modal ── -->
 <div class="modal-overlay" id="detailModal">
     <div class="modal" style="width:640px;">
@@ -922,6 +1021,10 @@ function renderCard(task) {
         ? `<div class="task-card-tags">${task.tags.map(t => `<span class="tag-chip">${esc(t)}</span>`).join('')}</div>` : '';
     return `
         <div class="task-card border-${task.status}" onclick="showTaskDetail('${task.taskId}')">
+            <div class="task-card-actions">
+                <button class="task-card-action-btn" onclick="event.stopPropagation(); editTask('${task.taskId}')" title="Edit task">&#9998;</button>
+                <button class="task-card-action-btn danger" onclick="event.stopPropagation(); deleteTaskPrompt('${task.taskId}')" title="Delete task">&#128465;</button>
+            </div>
             <div class="task-card-id">${esc(task.taskId)}</div>
             <div class="task-card-title">${esc(task.title)}</div>
             <div class="task-card-meta">
@@ -1217,6 +1320,221 @@ function showToast(msg, type) {
     t.textContent = msg;
     t.className = 'toast toast-' + type + ' visible';
     setTimeout(() => { t.classList.remove('visible'); }, 3000);
+}
+
+// ── Edit Task ──
+let editingTaskId = '';
+let editingTaskData = null;
+
+async function editTask(taskId) {
+    try {
+        editingTaskId = taskId;
+
+        // Fetch full task data
+        const res = await fetch(`/api/task/full?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}`);
+        if (!res.ok) throw new Error('Failed to load task');
+
+        editingTaskData = await res.json();
+
+        // Populate form
+        document.getElementById('editTaskIdLabel').textContent = `(${taskId})`;
+        document.getElementById('editTaskTitle').value = editingTaskData.title || '';
+        document.getElementById('editTaskDescription').value = editingTaskData.description || '';
+        document.getElementById('editTaskOrder').value = editingTaskData.orderOfExecution || 0;
+        document.getElementById('editTaskHours').value = editingTaskData.estimatedHours || '';
+        document.getElementById('editTaskTags').value = (editingTaskData.tags || []).join(', ');
+        document.getElementById('editTaskDependencies').value = (editingTaskData.dependencies || []).join(', ');
+        document.getElementById('editTaskOutOfScope').value = (editingTaskData.outOfScope || []).join('\n');
+
+        // Populate acceptance criteria
+        const acList = document.getElementById('editAcceptanceCriteriaList');
+        acList.innerHTML = '';
+        if (editingTaskData.acceptanceCriteria && editingTaskData.acceptanceCriteria.length > 0) {
+            editingTaskData.acceptanceCriteria.forEach((ac, idx) => {
+                acList.innerHTML += renderCriterionRow(idx, ac);
+            });
+        } else {
+            acList.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">No acceptance criteria defined</p>';
+        }
+
+        // Populate test scenarios
+        const tsList = document.getElementById('editTestScenariosList');
+        tsList.innerHTML = '';
+        if (editingTaskData.testScenarios && editingTaskData.testScenarios.length > 0) {
+            editingTaskData.testScenarios.forEach((ts, idx) => {
+                tsList.innerHTML += renderScenarioRow(idx, ts);
+            });
+        } else {
+            tsList.innerHTML = '<p style="font-size:12px;color:var(--text-muted);">No test scenarios defined</p>';
+        }
+
+        openModal('editTaskModal');
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+function renderCriterionRow(idx, ac) {
+    return `
+        <div class="criterion-row" style="display:flex;gap:8px;margin-bottom:8px;align-items:start;">
+            <input type="text" class="ac-id" placeholder="AC-${idx+1}" value="${esc(ac.id || '')}" style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+            <select class="ac-priority" style="width:120px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+                <option value="Must Have" ${ac.priority === 'Must Have' ? 'selected' : ''}>Must Have</option>
+                <option value="Should Have" ${ac.priority === 'Should Have' ? 'selected' : ''}>Should Have</option>
+                <option value="Could Have" ${ac.priority === 'Could Have' ? 'selected' : ''}>Could Have</option>
+            </select>
+            <input type="text" class="ac-text" placeholder="Criterion text" value="${esc(ac.criterion || '')}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+            <button type="button" onclick="removeRow(this)" style="padding:4px 8px;border:none;background:var(--danger);color:#fff;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
+        </div>
+    `;
+}
+
+function renderScenarioRow(idx, ts) {
+    return `
+        <div class="scenario-row" style="margin-bottom:12px;padding:10px;background:var(--bg);border-radius:3px;">
+            <div style="display:flex;gap:8px;margin-bottom:6px;">
+                <input type="text" class="ts-id" placeholder="TS-${idx+1}" value="${esc(ts.id || '')}" style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+                <select class="ts-priority" style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+                    <option value="P0" ${ts.priority === 'P0' ? 'selected' : ''}>P0</option>
+                    <option value="P1" ${ts.priority === 'P1' ? 'selected' : ''}>P1</option>
+                    <option value="P2" ${ts.priority === 'P2' ? 'selected' : ''}>P2</option>
+                    <option value="P3" ${ts.priority === 'P3' ? 'selected' : ''}>P3</option>
+                </select>
+                <input type="text" class="ts-title" placeholder="Scenario title" value="${esc(ts.title || '')}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;">
+                    <input type="checkbox" class="ts-manual" ${ts.manualOnly ? 'checked' : ''}>
+                    Manual
+                </label>
+                <button type="button" onclick="removeRow(this)" style="padding:4px 8px;border:none;background:var(--danger);color:#fff;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
+            </div>
+            <textarea class="ts-desc" placeholder="Scenario description" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:3px;font-size:12px;resize:vertical;min-height:60px;">${esc(ts.description || '')}</textarea>
+        </div>
+    `;
+}
+
+function addCriterionRow() {
+    const list = document.getElementById('editAcceptanceCriteriaList');
+    if (list.querySelector('p')) list.innerHTML = '';
+    const idx = list.querySelectorAll('.criterion-row').length;
+    list.insertAdjacentHTML('beforeend', renderCriterionRow(idx, { id: '', priority: 'Must Have', criterion: '' }));
+}
+
+function addScenarioRow() {
+    const list = document.getElementById('editTestScenariosList');
+    if (list.querySelector('p')) list.innerHTML = '';
+    const idx = list.querySelectorAll('.scenario-row').length;
+    list.insertAdjacentHTML('beforeend', renderScenarioRow(idx, { id: '', priority: 'P1', title: '', description: '', manualOnly: false }));
+}
+
+function removeRow(btn) {
+    btn.parentElement.remove();
+}
+
+async function saveTaskEdits(e) {
+    e.preventDefault();
+
+    try {
+        // Collect form data
+        const updates = {};
+
+        const title = document.getElementById('editTaskTitle').value.trim();
+        const description = document.getElementById('editTaskDescription').value.trim();
+        const orderOfExecution = parseInt(document.getElementById('editTaskOrder').value);
+        const estimatedHours = parseFloat(document.getElementById('editTaskHours').value);
+        const tagsStr = document.getElementById('editTaskTags').value.trim();
+        const depsStr = document.getElementById('editTaskDependencies').value.trim();
+        const outOfScopeStr = document.getElementById('editTaskOutOfScope').value.trim();
+
+        if (title) updates.title = title;
+        if (description) updates.description = description;
+        if (!isNaN(orderOfExecution)) updates.orderOfExecution = orderOfExecution;
+        if (!isNaN(estimatedHours)) updates.estimatedHours = estimatedHours;
+
+        updates.tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+        updates.dependencies = depsStr ? depsStr.split(',').map(d => d.trim()).filter(d => d) : [];
+        updates.outOfScope = outOfScopeStr ? outOfScopeStr.split('\n').map(s => s.trim()).filter(s => s) : [];
+
+        // Collect acceptance criteria
+        const criteriaRows = document.querySelectorAll('.criterion-row');
+        updates.acceptanceCriteria = Array.from(criteriaRows).map(row => ({
+            id: row.querySelector('.ac-id').value.trim() || `AC-${Math.floor(Math.random()*1000)}`,
+            priority: row.querySelector('.ac-priority').value,
+            criterion: row.querySelector('.ac-text').value.trim(),
+            verified: false
+        })).filter(ac => ac.criterion);
+
+        // Collect test scenarios
+        const scenarioRows = document.querySelectorAll('.scenario-row');
+        updates.testScenarios = Array.from(scenarioRows).map(row => ({
+            id: row.querySelector('.ts-id').value.trim() || `TS-${Math.floor(Math.random()*1000)}`,
+            priority: row.querySelector('.ts-priority').value,
+            title: row.querySelector('.ts-title').value.trim(),
+            description: row.querySelector('.ts-desc').value.trim(),
+            manualOnly: row.querySelector('.ts-manual').checked
+        })).filter(ts => ts.title);
+
+        // Send update request
+        const res = await fetch(`/api/tasks/${encodeURIComponent(editingTaskId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ featureSlug: currentSlug, updates })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to update task');
+        }
+
+        showToast('Task updated successfully', 'success');
+        closeModal('editTaskModal');
+        editingTaskId = '';
+        editingTaskData = null;
+
+        // Reload board
+        await loadBoard(currentSlug);
+        await loadFeatures();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
+// ── Delete Task ──
+let deletingTaskId = '';
+
+function deleteTaskPrompt(taskId) {
+    deletingTaskId = taskId;
+    const task = allTasks.find(t => t.taskId === taskId);
+
+    document.getElementById('deleteTaskId').textContent = taskId;
+    document.getElementById('deleteTaskTitle').textContent = task ? task.title : 'Unknown';
+
+    openModal('deleteTaskModal');
+}
+
+async function confirmDeleteTask() {
+    if (!deletingTaskId) return;
+
+    try {
+        const res = await fetch(`/api/tasks/${encodeURIComponent(deletingTaskId)}?featureSlug=${encodeURIComponent(currentSlug)}`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'Failed to delete task');
+        }
+
+        const result = await res.json();
+        showToast(result.message || 'Task deleted successfully', 'success');
+        closeModal('deleteTaskModal');
+        deletingTaskId = '';
+
+        // Reload board
+        await loadBoard(currentSlug);
+        await loadFeatures();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
 }
 
 // Cleanup

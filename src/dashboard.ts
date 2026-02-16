@@ -232,7 +232,7 @@ export function startDashboard(port: number = 5111) {
   app.post('/api/tasks', async (req, res): Promise<void> => {
     try {
       const { featureSlug, task } = req.body;
-      
+
       if (!featureSlug || !task) {
         res.status(400).json({ error: 'Feature slug and task data are required' });
         return;
@@ -241,8 +241,68 @@ export function startDashboard(port: number = 5111) {
       reviewManager['dbHandler'].addTask(featureSlug, task);
       res.json({ success: true, message: 'Task added successfully' });
     } catch (error) {
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : String(error) 
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  /**
+   * PUT /api/tasks/:taskId
+   * Update an existing task
+   */
+  app.put('/api/tasks/:taskId', async (req, res): Promise<void> => {
+    try {
+      const { featureSlug, updates } = req.body;
+      const taskId = req.params.taskId;
+
+      if (!featureSlug || !updates) {
+        res.status(400).json({ error: 'Feature slug and updates are required' });
+        return;
+      }
+
+      const result = await reviewManager.updateTask({
+        featureSlug,
+        taskId,
+        updates,
+      });
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/tasks/:taskId
+   * Delete a task
+   */
+  app.delete('/api/tasks/:taskId', async (req, res): Promise<void> => {
+    try {
+      const featureSlug = req.query.featureSlug as string;
+      const taskId = req.params.taskId;
+
+      if (!featureSlug) {
+        res.status(400).json({ error: 'Feature slug is required' });
+        return;
+      }
+
+      const result = await reviewManager.deleteTask(featureSlug, taskId);
+
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   });

@@ -11,11 +11,12 @@ This MCP server provides declarative tools for managing task reviews across mult
 - **State Machine Workflow**: Enforces sequential stakeholder approvals (Product Director → Architect → Lead Engineer → CFO → CSO)
 - **SQLite Database Storage**: All tasks stored in a fast, reliable SQLite database (no more JSON file dependencies)
 - **Atomic Operations**: Database transactions ensure data consistency
+- **Task Management**: Create, read, update, and delete tasks with full CRUD support
 - **Validation**: Pre-flight validation before reviews with detailed error messages
 - **Progress Tracking**: Real-time summary of review progress across all tasks
 - **Role-Specific Fields**: Each stakeholder can add specialized data (market analysis, security requirements, etc.)
 - **Development Workflow**: Complete support for ToDo → InProgress → InReview → InQA → Done transitions
-- **Real-time Dashboard**: Beautiful web UI for monitoring task progress (see [DASHBOARD.md](DASHBOARD.md))
+- **Real-time Dashboard**: Beautiful web UI for monitoring task progress with inline editing (see [DASHBOARD.md](DASHBOARD.md))
 - **Feature-Slug Convention**: Simple, convention-based feature identification
 
 ### Database Storage
@@ -321,6 +322,83 @@ Check if all tasks are marked as Done.
   "incompleteTasks": []
 }
 ```
+
+### 10. update_task
+
+Update an existing task within a feature. Allows modifying task properties like title, description, acceptance criteria, test scenarios, etc. Use this when requirements change during refinement.
+
+**Note:** Cannot update task status - use `transition_task_status` for status changes.
+
+**Parameters:**
+- `featureSlug` (string, required): Feature slug identifier
+- `taskId` (string, required): Task identifier to update
+- `updates` (object, required): Fields to update
+  - `title` (string, optional): Task title
+  - `description` (string, optional): Task description
+  - `orderOfExecution` (number, optional): Execution order
+  - `estimatedHours` (number, optional): Estimated hours
+  - `acceptanceCriteria` (array, optional): Acceptance criteria
+  - `testScenarios` (array, optional): Test scenarios
+  - `outOfScope` (array, optional): Out of scope items
+  - `dependencies` (array, optional): Task dependencies
+  - `tags` (array, optional): Task tags
+
+**Returns:**
+```json
+{
+  "success": true,
+  "featureSlug": "my-feature",
+  "taskId": "T01",
+  "message": "Task 'T01' updated successfully"
+}
+```
+
+**Example:**
+```json
+{
+  "featureSlug": "my-feature",
+  "taskId": "T01",
+  "updates": {
+    "title": "Updated Title",
+    "description": "New description with more details",
+    "acceptanceCriteria": [
+      {
+        "id": "AC-1",
+        "criterion": "Must support user authentication",
+        "priority": "Must Have"
+      },
+      {
+        "id": "AC-2",
+        "criterion": "Should validate email format",
+        "priority": "Should Have"
+      }
+    ],
+    "tags": ["auth", "security"]
+  }
+}
+```
+
+### 11. delete_task
+
+Delete a task from a feature. This removes the task and all associated data (transitions, reviews, criteria). Use this when a task is no longer needed.
+
+**Warning:** This operation cannot be undone. All related data (transitions, stakeholder reviews, acceptance criteria, test scenarios) will be permanently deleted.
+
+**Parameters:**
+- `featureSlug` (string, required): Feature slug identifier
+- `taskId` (string, required): Task identifier to delete
+
+**Returns:**
+```json
+{
+  "success": true,
+  "featureSlug": "my-feature",
+  "taskId": "T01",
+  "message": "Task 'T01' deleted successfully. Warning: 2 task(s) had dependencies on this task: T02, T03"
+}
+```
+
+**Note:** If other tasks depend on the deleted task, a warning will be included in the message listing the dependent tasks.
 
 ## Workflow State Machine
 
