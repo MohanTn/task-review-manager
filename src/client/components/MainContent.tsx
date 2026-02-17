@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../state/AppState';
 import { APIClient } from '../api/client';
+import { Feature } from '../types';
 import ContentHeader from './ContentHeader';
 import Board from './Board';
 import DetailPanel from './DetailPanel';
@@ -15,9 +16,11 @@ const MainContent: React.FC = () => {
     currentView,
     loading,
     setLoading,
+    autoRefresh,
   } = useAppState();
 
   const [featureTitle, setFeatureTitle] = useState('');
+  const [currentFeature, setCurrentFeature] = useState<Feature | null>(null);
   const [showEmpty, setShowEmpty] = useState(true);
 
   useEffect(() => {
@@ -28,14 +31,31 @@ const MainContent: React.FC = () => {
     }
   }, [currentFeatureSlug, currentRepo]);
 
+  // Auto-refresh mechanism
+  useEffect(() => {
+    if (!autoRefresh || !currentFeatureSlug) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      loadFeatureTasks();
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, [autoRefresh, currentFeatureSlug, currentRepo]);
+
   const loadFeatureTasks = async () => {
     if (!currentFeatureSlug) return;
     
     setLoading(true);
     try {
-      const summary = await APIClient.getTasks(currentRepo, currentFeatureSlug);
+      const [summary, feature] = await Promise.all([
+        APIClient.getTasks(currentRepo, currentFeatureSlug),
+        APIClient.getFeature(currentRepo, currentFeatureSlug)
+      ]);
       setFeatureTitle(summary.featureTitle || currentFeatureSlug);
       setCurrentTasks(summary.tasks || []);
+      setCurrentFeature(feature);
       setShowEmpty(false);
     } catch (error) {
       console.error('Failed to load tasks:', error);
@@ -72,7 +92,7 @@ const MainContent: React.FC = () => {
         {currentView === 'board' ? (
           <Board tasks={currentTasks} />
         ) : (
-          <DetailPanel tasks={currentTasks} />
+          <DetailPanel tasks={currentTasks} feature={currentFeature} />
         )}
       </div>
     </main>

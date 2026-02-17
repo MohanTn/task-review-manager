@@ -1,48 +1,32 @@
-import { Feature, Task, ReviewSummary } from '../types';
+/**
+ * Main API Client - Re-exports all API modules for backward compatibility
+ */
+import { RepoAPI } from './repos.api.js';
+import { FeatureAPI } from './features.api.js';
+import { TaskAPI } from './tasks.api.js';
+import { Feature, Task, ReviewSummary } from '../types/index.js';
 
-const API_BASE = '/api';
-
+/**
+ * Unified API Client that combines all API modules
+ * This maintains backward compatibility while using the new modular structure
+ */
 export class APIClient {
-  private static async request<T>(
-    url: string,
-    options?: RequestInit
-  ): Promise<T> {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error((error as any).error || `HTTP ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  // Repo Operations
+  // Re-export Repo Operations
   static async listRepos(): Promise<Record<string, any>> {
-    return this.request(`${API_BASE}/repos`);
+    return RepoAPI.listRepos();
   }
 
   static async registerRepo(repoName: string, description?: string): Promise<any> {
-    return this.request(`${API_BASE}/repos`, {
-      method: 'POST',
-      body: JSON.stringify({ repoName, description }),
-    });
+    return RepoAPI.registerRepo(repoName, description);
   }
 
-  // Feature Operations
+  // Re-export Feature Operations
   static async listFeatures(repoName: string = 'default'): Promise<Feature[]> {
-    const response = await this.request<any>(`${API_BASE}/features?repoName=${encodeURIComponent(repoName)}`);
-    return response.features || [];
+    return FeatureAPI.listFeatures(repoName);
   }
 
   static async getFeature(repoName: string, featureSlug: string): Promise<Feature> {
-    return this.request(`${API_BASE}/features/${encodeURIComponent(featureSlug)}?repoName=${encodeURIComponent(repoName)}`);
+    return FeatureAPI.getFeature(repoName, featureSlug);
   }
 
   static async createFeature(data: {
@@ -51,36 +35,24 @@ export class APIClient {
     title: string;
     description?: string;
   }): Promise<any> {
-    return this.request(`${API_BASE}/features`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return FeatureAPI.createFeature(data);
   }
 
   static async deleteFeature(repoName: string, featureSlug: string): Promise<any> {
-    return this.request(
-      `${API_BASE}/features/${encodeURIComponent(featureSlug)}?repoName=${encodeURIComponent(repoName)}`,
-      { method: 'DELETE' }
-    );
+    return FeatureAPI.deleteFeature(repoName, featureSlug);
   }
 
-  // Task Operations
+  // Re-export Task Operations
   static async getTasks(repoName: string, featureSlug: string): Promise<ReviewSummary> {
-    return this.request(
-      `${API_BASE}/tasks?featureSlug=${encodeURIComponent(featureSlug)}&repoName=${encodeURIComponent(repoName)}`
-    );
+    return TaskAPI.getTasks(repoName, featureSlug);
   }
 
   static async getTask(repoName: string, featureSlug: string, taskId: string): Promise<Task> {
-    return this.request(
-      `${API_BASE}/task?featureSlug=${encodeURIComponent(featureSlug)}&id=${encodeURIComponent(taskId)}&repoName=${encodeURIComponent(repoName)}`
-    );
+    return TaskAPI.getTask(repoName, featureSlug, taskId);
   }
 
   static async getFullTask(repoName: string, featureSlug: string, taskId: string): Promise<Task> {
-    return this.request(
-      `${API_BASE}/task/full?featureSlug=${encodeURIComponent(featureSlug)}&id=${encodeURIComponent(taskId)}&repoName=${encodeURIComponent(repoName)}`
-    );
+    return TaskAPI.getFullTask(repoName, featureSlug, taskId);
   }
 
   static async createTask(data: {
@@ -91,10 +63,7 @@ export class APIClient {
     description: string;
     [key: string]: any;
   }): Promise<any> {
-    return this.request(`${API_BASE}/tasks`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return TaskAPI.createTask(data);
   }
 
   static async updateTask(
@@ -103,17 +72,11 @@ export class APIClient {
     repoName: string,
     updates: Partial<Task>
   ): Promise<any> {
-    return this.request(`${API_BASE}/tasks/${encodeURIComponent(taskId)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ featureSlug, updates, repoName }),
-    });
+    return TaskAPI.updateTask(taskId, featureSlug, repoName, updates);
   }
 
   static async deleteTask(repoName: string, featureSlug: string, taskId: string): Promise<any> {
-    return this.request(
-      `${API_BASE}/tasks/${encodeURIComponent(taskId)}?featureSlug=${encodeURIComponent(featureSlug)}&repoName=${encodeURIComponent(repoName)}`,
-      { method: 'DELETE' }
-    );
+    return TaskAPI.deleteTask(repoName, featureSlug, taskId);
   }
 
   static async getTasksByStatus(
@@ -121,8 +84,9 @@ export class APIClient {
     featureSlug: string,
     status: string
   ): Promise<any> {
-    return this.request(
-      `${API_BASE}/tasks/by-status?featureSlug=${encodeURIComponent(featureSlug)}&status=${encodeURIComponent(status)}&repoName=${encodeURIComponent(repoName)}`
-    );
+    return TaskAPI.getTasksByStatus(repoName, featureSlug, status);
   }
 }
+
+// Also export individual API modules for direct use
+export { RepoAPI, FeatureAPI, TaskAPI };
