@@ -6,7 +6,7 @@ description: Here you will execute a carefully orchestrated workflow by followin
 - Refined feature_slug path (e.g. `smart-strangle-engine`) with pre-approved tasks from the refinement phase stored in the MCP database
 
 # Output file
-- Create a new file in `.github/artifacts/<feature_slug>/dev-workflow.md` (relative to current workspace)
+No file must be created for this workflow. All outputs should be returned in the response and any code changes should be committed to the appropriate feature branch in the repository.
 
 # Step 1
 - **PREREQUISITE**: This workflow requires a completed feature refinement with stakeholder-approved tasks
@@ -46,66 +46,102 @@ description: Here you will execute a carefully orchestrated workflow by followin
 - Create a feature branch: `git checkout -b feature/<feature_slug>/description`
 - add Step 5 completed into output file with branch name and initial commit message
 
-# Step 6 - Development Cycle (MCP Orchestrated)
-**CRITICAL: The MCP server orchestrates the entire development cycle. Use `get_next_step` and `transition_task_status` to drive each task through Developer > Code Reviewer > QA > Done.**
+# Step 6 - Development Cycle (MCP Orchestrated - Batched by Role)
+**CRITICAL: The MCP server orchestrates the entire development cycle. Process ALL tasks through each role before moving to the next role for maximum efficiency.**
 
-- For each task, use `get_next_task` with statusFilter `["ReadyForDevelopment", "ToDo", "NeedsChanges"]` to get the next task to work on. Loop until no more tasks are returned.
+- Execute the development cycle in batches by role (Developer → Code Reviewer → QA):
 
-  ## 6.1 - Get Next Step
-  - Call `get_next_step` with the featureSlug and taskId
-  - The MCP server returns:
-    - `nextRole`: The role you must adopt (developer, codeReviewer, qa)
-    - `systemPrompt`: Complete instructions for what to do
-    - `allowedDecisions`: What actions you can take
-    - `transitionOnSuccess` / `transitionOnFailure`: Target statuses
-    - `focusAreas`: Specific areas to focus on
-    - `previousRoleNotes`: Context from prior stakeholder and execution reviews
-    - `requiredOutputFields`: Fields to populate in the transition
+  ## 6.1 - Developer Implementation (Batch)
+  - Get all tasks ready for development using `get_tasks_by_status` with status "ReadyForDevelopment"
+  - For each task in dependency order (sort by `orderOfExecution`):
+    - Call `get_next_step` to get systemPrompt and previousRoleNotes
+    - Transition: ReadyForDevelopment -> ToDo -> InProgress using `transition_task_status`
+    - Review ALL stakeholder feedback from `previousRoleNotes`:
+      - Product Director notes (UX/feature requirements)
+      - Architect notes (technical approach and design patterns)
+      - UI/UX Expert notes (usability and accessibility)
+      - Security Officer notes (security requirements and compliance)
+    - Implement the feature following stakeholder guidance
+    - Write comprehensive unit and integration tests
+    - Transition: InProgress -> InReview using `transition_task_status` with metadata:
+      - `developerNotes`: Implementation approach and decisions
+      - `filesChanged`: Array of modified file paths
+      - `testFiles`: Array of test file paths
+  - All implemented tasks move to "InReview" status
 
-  ## 6.2 - Execute Role
-  - Adopt the `nextRole` identity
-  - Follow the `systemPrompt` instructions exactly
+  ## 6.2 - Code Review (Batch)
+  - Get all tasks pending code review using `get_tasks_by_status` with status "InReview"
+  - For each task:
+    - Call `get_next_step` to get systemPrompt and previousRoleNotes
+    - Review all code changes listed in `filesChanged` from developer transition
+    - Review test files listed in `testFiles`
+    - Run tests and verify coverage
+    - Check adherence to:
+      - Architect recommendations (design patterns, technology choices)
+      - Security requirements (Security Officer notes)
+      - Code quality standards (clean code, documentation)
+    - Decision:
+      - **If approved**: Transition InReview -> InQA with metadata:
+        - `codeReviewerNotes`: Review summary and approval rationale
+        - `testResultsSummary`: Test execution results
+      - **If rejected**: Transition InReview -> NeedsChanges with metadata:
+        - `codeReviewerNotes`: Issues found and required changes
+        - `codeQualityConcerns`: Array of quality issues
+  - Approved tasks move to "InQA" status
+  - Rejected tasks move to "NeedsChanges" (developer will address in next iteration)
 
-  ### If Developer:
-  - Transition task: ReadyForDevelopment -> ToDo -> InProgress using `transition_task_status`
-  - Review ALL stakeholder feedback from `previousRoleNotes`:
-    - Product Director notes (UX/feature requirements)
-    - Architect notes (technical approach and design patterns)
-    - UI/UX Expert notes (usability and accessibility)
-    - Security Officer notes (security requirements and compliance)
-  - Implement the feature following stakeholder guidance
-  - Write comprehensive unit and integration tests
-  - Transition task: InProgress -> InReview using `transition_task_status` with metadata:
-    - `developerNotes`, `filesChanged`, `testFiles`
+  ## 6.3 - QA Testing (Batch)
+  - Get all tasks pending QA using `get_tasks_by_status` with status "InQA"
+  - For each task:
+    - Call `get_next_step` to get systemPrompt, previousRoleNotes, and test scenarios
+    - Execute all test scenarios from the task definition
+    - Verify all acceptance criteria are met
+    - Test against stakeholder requirements:
+      - Product Director requirements (feature behavior)
+      - UI/UX Expert requirements (usability, accessibility)
+      - Security Officer requirements (security controls)
+    - Use `update_acceptance_criteria` to mark each criterion as verified (or not)
+    - Decision:
+      - **If all tests pass**: Transition InQA -> Done with metadata:
+        - `qaNotes`: Testing summary and validation details
+        - `testExecutionSummary`: Results of all test scenarios
+        - `acceptanceCriteriaMet`: true
+      - **If any tests fail**: Transition InQA -> NeedsChanges with metadata:
+        - `qaNotes`: Failed tests and issues found
+        - `bugsFound`: Array of bugs discovered
+        - `acceptanceCriteriaMet`: false
+  - Passed tasks move to "Done" status
+  - Failed tasks move to "NeedsChanges"
 
-  ### If Code Reviewer:
-  - Review all code changes and test files
-  - If approved: Transition InReview -> InQA with `codeReviewerNotes`, `testResultsSummary`
-  - If rejected: Transition InReview -> NeedsChanges with `codeReviewerNotes`, `codeQualityConcerns`
+  ## 6.4 - Handle Changes Required (If Any)
+  - Get all tasks needing changes using `get_tasks_by_status` with status "NeedsChanges"
+  - For each task:
+    - Review feedback from code reviewer or QA in previous transition notes
+    - Address all identified issues
+    - Transition: NeedsChanges -> InProgress
+    - Make required fixes
+    - Transition: InProgress -> InReview
+  - Revised tasks re-enter the code review queue
+  - Repeat the cycle (Code Review → QA) until all tasks are "Done"
 
-  ### If QA:
-  - Execute all test scenarios and verify acceptance criteria
-  - Use `update_acceptance_criteria` to mark each criterion as verified
-  - If all pass: Transition InQA -> Done with `qaNotes`, `testExecutionSummary`, `acceptanceCriteriaMet: true`
-  - If any fail: Transition InQA -> NeedsChanges with `qaNotes`, `bugsFound`
+  ## 6.5 - Iteration
+  - After each role completes their batch:
+    - Check if any tasks are still in "NeedsChanges" status
+    - Process those tasks through Developer fixes
+    - Continue batched review/QA until all tasks reach "Done"
+  - This batched approach minimizes context switching and improves efficiency
 
-  ## 6.3 - Loop
-  - After each transition, call `get_next_step` again for this task
-  - If task is not yet Done, repeat from 6.2 with the new role
-  - If task is Done, move to the next task via `get_next_task`
-  - If task was rejected (NeedsChanges), the developer picks it back up
-
-  ## 6.4 - Pull Request and Merge
+  ## 6.6 - Pull Request and Merge
   - **VERIFICATION**: Call `verify_all_tasks_complete` to confirm ALL tasks have status "Done"
   - Review task completion: confirm all tasks show proper transition history
   - Create a Pull Request with comprehensive description linking to Jira ticket
   - Ensure all CI/CD checks pass and code coverage meets minimum thresholds
   - Merge feature branch to development branch upon approval
-  - add Step 6.4 completed into output file with PR details and merge confirmation
+  - add Step 6.6 completed into output file with PR details and merge confirmation
 
-  ## 6.5 - Git Commit
+  ## 6.7 - Git Commit
   - Commit only the code changes done in the repo with a single line comment as summary in this pattern `feature/<feature_slug>: summary of changes`, exclude all the files .md and task.json file
-  - add Step 6.5 completed into output file with commit message and summary of changes
+  - add Step 6.7 completed into output file with commit message and summary of changes
 
 # Step 7 - Final Verification and Workflow Completion
 - **VERIFICATION**: Call `verify_all_tasks_complete` and `get_feature` to confirm all tasks have status "Done" with complete transition history

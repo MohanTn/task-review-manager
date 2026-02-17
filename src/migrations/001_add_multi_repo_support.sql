@@ -200,6 +200,7 @@ DROP INDEX IF EXISTS idx_test_scenarios_task;
 DROP INDEX IF EXISTS idx_stakeholder_reviews_task;
 
 -- Create new composite indexes with repo_name
+CREATE UNIQUE INDEX IF NOT EXISTS idx_features_repo_slug ON features(repo_name, feature_slug);
 CREATE INDEX IF NOT EXISTS idx_tasks_repo_feature ON tasks(repo_name, feature_slug);
 CREATE INDEX IF NOT EXISTS idx_transitions_repo_task ON transitions(repo_name, feature_slug, task_id);
 CREATE INDEX IF NOT EXISTS idx_acceptance_criteria_repo_task ON acceptance_criteria(repo_name, feature_slug, task_id);

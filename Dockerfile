@@ -10,11 +10,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY tsconfig.client.json ./
+COPY tsconfig.node.json ./
 COPY build.js ./
 COPY jest.config.js ./
+COPY vite.config.ts ./
 
-# Install dependencies
-RUN npm ci --production=false
+# Install dependencies (--ignore-scripts to skip prepare/build since src isn't copied yet)
+RUN npm ci --ignore-scripts
+
+# Rebuild native modules (better-sqlite3)
+RUN npm rebuild better-sqlite3
 
 # Copy source code
 COPY src ./src

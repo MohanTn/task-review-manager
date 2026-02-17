@@ -1,0 +1,11 @@
+.detailPanel {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--surface);
+  padding: 20px;
+}
+
+.detailContent {
+  max-width: 1200px;
+  margin: 0 auto;
+}

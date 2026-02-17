@@ -23,7 +23,9 @@ export function startDashboard(port: number = 5111) {
 
   // Middleware
   app.use(express.json());
-  app.use(express.static(path.join(__dirname, 'public')));
+  
+  // Serve static files from Vite build output
+  app.use(express.static(path.join(__dirname, 'client')));
 
   // API Endpoints
 
@@ -131,10 +133,10 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * Serve the dashboard HTML
+   * Serve the dashboard HTML (for SPA routing)
    */
   app.get('/', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'client', 'index.html'));
   });
 
   // Health check
@@ -143,13 +145,141 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
+   * POST /api/repos
+   * Register a new repository
+   */
+  app.post('/api/repos', async (req, res): Promise<void> => {
+    try {
+      const { repoName, repoPath, repoUrl, defaultBranch } = req.body;
+
+      if (!repoName || !repoPath) {
+        res.status(400).json({ error: 'repoName and repoPath are required' });
+        return;
+      }
+
+      // Validate repoName: alphanumeric + hyphens only
+      if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(repoName) && !/^[a-z0-9]$/.test(repoName)) {
+        res.status(400).json({ error: 'repoName must match pattern [a-z0-9-]+ (lowercase alphanumeric and hyphens, no leading/trailing hyphens)' });
+        return;
+      }
+
+      // Validate repoPath: no shell metacharacters
+      if (/[;|&$`]/.test(repoPath)) {
+        res.status(400).json({ error: 'repoPath must not contain shell metacharacters' });
+        return;
+      }
+
+      const result = await reviewManager.registerRepo({
+        repoName,
+        repoPath,
+        repoUrl: repoUrl || undefined,
+        defaultBranch: defaultBranch || undefined,
+      });
+
+      if (result.success) {
+        res.status(201).json(result);
+      } else {
+        // Check for duplicate
+        const isDuplicate = result.error && result.error.includes('UNIQUE constraint');
+        res.status(isDuplicate ? 409 : 400).json(result);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isDuplicate = message.includes('UNIQUE constraint');
+      res.status(isDuplicate ? 409 : 500).json({ error: message });
+    }
+  });
+
+  /**
+   * GET /api/features/:featureSlug/details?repoName=<repo>
+   * Get feature details including AC, test scenarios, refinement steps, clarifications
+   */
+  app.get('/api/features/:featureSlug/details', (req, res) => {
+    try {
+      const featureSlug = req.params.featureSlug;
+      const repoName = (req.query.repoName as string) || 'default';
+
+      // Get all feature detail data
+      const acceptanceCriteria = reviewManager['dbHandler'].getFeatureAcceptanceCriteria(repoName, featureSlug);
+      const testScenarios = reviewManager['dbHandler'].getFeatureTestScenarios(repoName, featureSlug);
+      const refinementSteps = reviewManager['dbHandler'].getRefinementSteps(repoName, featureSlug);
+      const clarifications = reviewManager['dbHandler'].getClarifications(repoName, featureSlug);
+      const refinementStatus = reviewManager['dbHandler'].getRefinementStatus(repoName, featureSlug);
+
+      // Get feature metadata from features list
+      const features = reviewManager['dbHandler'].getAllFeatures(repoName);
+      const feature = features.find((f: any) => f.featureSlug === featureSlug);
+
+      if (!feature) {
+        res.status(404).json({ error: `Feature '${featureSlug}' not found in repo '${repoName}'` });
+        return;
+      }
+
+      res.json({
+        success: true,
+        feature: {
+          featureSlug: feature.featureSlug,
+          featureName: feature.featureName,
+          lastModified: feature.lastModified,
+          totalTasks: feature.totalTasks,
+        },
+        acceptanceCriteria,
+        testScenarios,
+        refinementSteps,
+        clarifications,
+        refinementStatus,
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * GET /api/refinement-status?featureSlug=<slug>&repoName=<repo>
+   * Get refinement progress for a feature
+   */
+  app.get('/api/refinement-status', (req, res) => {
+    try {
+      const featureSlug = req.query.featureSlug as string;
+      const repoName = (req.query.repoName as string) || 'default';
+
+      if (!featureSlug) {
+        res.status(400).json({ error: 'featureSlug is required' });
+        return;
+      }
+
+      const status = reviewManager['dbHandler'].getRefinementStatus(repoName, featureSlug);
+      res.json({ success: true, ...status });
+    } catch (error) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
    * GET /api/repos
    * List all registered repositories
    */
-  app.get('/api/repos', (_req, res) => {
+  app.get('/api/repos', async (_req, res): Promise<void> => {
     try {
-      const result = reviewManager.listRepos();
-      res.json(result);
+      const result = await reviewManager.listRepos();
+      // Transform to dictionary format expected by client
+      const reposDict: Record<string, any> = {};
+      if (result.success && result.repos) {
+        result.repos.forEach(repo => {
+          reposDict[repo.repoName] = {
+            repoPath: repo.repoPath,
+            featureCount: repo.featureCount,
+            totalTasks: repo.totalTasks,
+            completedTasks: repo.completedTasks,
+            lastAccessedAt: repo.lastAccessedAt,
+          };
+        });
+      }
+      res.json(reposDict);
     } catch (error) {
       res.status(500).json({ 
         error: error instanceof Error ? error.message : String(error) 
@@ -233,7 +363,7 @@ export function startDashboard(port: number = 5111) {
         return;
       }
 
-      const taskFile = await reviewManager['dbHandler'].loadByFeatureSlug(repoName, featureSlug);
+      const taskFile = await reviewManager['dbHandler'].loadByFeatureSlug(featureSlug, repoName);
       const task = taskFile.tasks.find((t: { taskId: string }) => t.taskId === taskId);
 
       if (!task) {
@@ -334,7 +464,7 @@ export function startDashboard(port: number = 5111) {
   });
 
   // Start server
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.error(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
@@ -352,15 +482,13 @@ export function startDashboard(port: number = 5111) {
     `);
   });
 
+  // Expose server on app for test cleanup
+  (app as any)._server = server;
+
   return app;
 }
 
 // Start dashboard if run directly
-const isDirectRun = (() => {
-  if (!process.argv[1]) return false;
-  const argUrl = new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`).href;
-  return import.meta.url === argUrl;
-})();
-if (isDirectRun) {
+if (import.meta.url.endsWith('dashboard.js') || process.argv[1]?.endsWith('dashboard.js')) {
   startDashboard();
 }
