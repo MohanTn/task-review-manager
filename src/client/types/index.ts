@@ -61,7 +61,8 @@ export interface Feature {
   description?: string;
   repoName: string;
   createdAt: string;
-  tasks: Task[];
+  tasks?: Task[];
+  totalTasks?: number;
 }
 
 export interface Repo {

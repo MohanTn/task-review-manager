@@ -10,12 +10,25 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
-  const { repos, setRepos, currentRepo, setCurrentRepo, currentFeatureSlug, setCurrentFeature } = useAppState();
+  const { repos, setRepos, currentRepo, setCurrentRepo, currentFeatureSlug, setCurrentFeature, autoRefresh } = useAppState();
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set(['default']));
 
   useEffect(() => {
     loadRepos();
   }, []);
+
+  // Auto-refresh repos and features
+  useEffect(() => {
+    if (!autoRefresh) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      loadRepos();
+    }, 10000); // Refresh every 10 seconds (less frequent than tasks)
+
+    return () => clearInterval(intervalId);
+  }, [autoRefresh]);
 
   const loadRepos = async () => {
     try {

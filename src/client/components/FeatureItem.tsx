@@ -23,7 +23,7 @@ const FeatureItem: React.FC<FeatureItemProps> = ({ feature, active, onClick }) =
       }}
     >
       <span className={styles.sidebarFeatureName}>{feature.title || feature.featureSlug}</span>
-      <span className={styles.sidebarFeatureCount}>{feature.tasks?.length || 0}</span>
+      <span className={styles.sidebarFeatureCount}>{feature.totalTasks ?? feature.tasks?.length ?? 0}</span>
     </div>
   );
 };
