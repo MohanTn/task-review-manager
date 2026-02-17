@@ -1,9 +1,13 @@
 {
   "mcpServers": {
     "task-review-manager": {
-      "command": "node",
+      "command": "docker",
       "args": [
-        "c:\\Users\\mohan\\REPO\\zerodha-trade-portal\\utility\\dist\\bundle.js"
+        "exec",
+        "-i",
+        "task-review-manager-mcp",
+        "node",
+        "dist/bundle.js"
       ],
       "disabled": false
     }

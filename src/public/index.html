@@ -538,6 +538,9 @@
     <span class="topbar-title">Task Review Manager</span>
     <div class="topbar-sep"></div>
     <div class="topbar-controls">
+        <select id="repoSelect">
+            <option value="">-- Select Repo --</option>
+        </select>
         <select id="featureSelect">
             <option value="">-- Select Feature --</option>
         </select>
@@ -790,9 +793,11 @@
 
 <script>
 // ── State ──
+let currentRepo = 'default';
 let currentSlug = '';
 let allTasks = [];
 let allFeatures = [];
+let allRepos = [];
 let summaryData = null;
 let autoRefreshTimer = null;
 let searchTerm = '';
@@ -815,7 +820,9 @@ const STATUS_COLUMNS = [
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
+    loadRepos();
     loadFeatures();
+    document.getElementById('repoSelect').addEventListener('change', onRepoSelect);
     document.getElementById('featureSelect').addEventListener('change', onFeatureSelect);
     document.getElementById('featureSlugInput').addEventListener('keypress', e => {
         if (e.key === 'Enter') loadFromInput();
@@ -828,10 +835,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// ── Repos ──
+async function loadRepos() {
+    try {
+        const res = await fetch('/api/repos');
+        const data = await res.json();
+        allRepos = data.repos || [];
+        populateRepoSelect();
+    } catch (e) {
+        showToast('Failed to load repos', 'error');
+    }
+}
+
+function populateRepoSelect() {
+    const sel = document.getElementById('repoSelect');
+    const val = sel.value || currentRepo;
+    sel.innerHTML = '';
+    allRepos.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.repoName;
+        opt.textContent = `${r.repoName} (${r.featureCount} features)`;
+        sel.appendChild(opt);
+    });
+    sel.value = val;
+    if (!sel.value && allRepos.length > 0) {
+        sel.value = allRepos[0].repoName;
+        currentRepo = allRepos[0].repoName;
+    }
+}
+
+function onRepoSelect() {
+    const repo = document.getElementById('repoSelect').value;
+    if (repo) {
+        currentRepo = repo;
+        // Clear current feature and reload
+        currentSlug = '';
+        document.getElementById('featureSelect').value = '';
+        document.getElementById('featureSlugInput').value = '';
+        loadFeatures();
+        // Hide board until feature selected
+        document.getElementById('board').style.display = 'none';
+        document.getElementById('subheader').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+}
+
 // ── Features ──
 async function loadFeatures() {
     try {
-        const res = await fetch('/api/features');
+        const res = await fetch(`/api/features?repoName=${encodeURIComponent(currentRepo)}`);
         const data = await res.json();
         allFeatures = data.features || [];
         populateFeatureSelect();
@@ -907,7 +959,7 @@ async function loadBoard(slug) {
     document.getElementById('deleteFeatureBtn').disabled = false;
 
     try {
-        const res = await fetch(`/api/tasks?featureSlug=${encodeURIComponent(slug)}`);
+        const res = await fetch(`/api/tasks?featureSlug=${encodeURIComponent(slug)}&repoName=${encodeURIComponent(currentRepo)}`);
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             const message = err.error || 'Failed to load';
@@ -1042,8 +1094,8 @@ async function showTaskDetail(taskId) {
     try {
         // Fetch both status info and full task data in parallel
         const [statusRes, fullRes] = await Promise.all([
-            fetch(`/api/task?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}`),
-            fetch(`/api/task/full?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}`)
+            fetch(`/api/task?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}&repoName=${encodeURIComponent(currentRepo)}`),
+            fetch(`/api/task/full?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}&repoName=${encodeURIComponent(currentRepo)}`)
         ]);
         if (!statusRes.ok) throw new Error('Failed to load task');
         const statusData = await statusRes.json();
@@ -1199,7 +1251,7 @@ async function createFeature(e) {
         const res = await fetch('/api/features', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ featureSlug: slug, featureName: name })
+            body: JSON.stringify({ featureSlug: slug, featureName: name, repoName: currentRepo })
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
         showToast('Feature created', 'success');
@@ -1231,7 +1283,7 @@ async function addTask(e) {
         const res = await fetch('/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ featureSlug: currentSlug, task })
+            body: JSON.stringify({ featureSlug: currentSlug, task, repoName: currentRepo })
         });
         if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
         showToast('Task added', 'success');
@@ -1253,7 +1305,7 @@ async function deleteFeature() {
     if (!currentSlug) return;
     if (!confirm(`Delete feature "${currentSlug}" and ALL its tasks? This cannot be undone.`)) return;
     try {
-        const res = await fetch(`/api/features/${encodeURIComponent(currentSlug)}`, { method: 'DELETE' });
+        const res = await fetch(`/api/features/${encodeURIComponent(currentSlug)}?repoName=${encodeURIComponent(currentRepo)}`, { method: 'DELETE' });
         if (!res.ok) { const err = await res.json(); throw new Error(err.error); }
         showToast('Feature deleted', 'success');
         currentSlug = '';
@@ -1331,7 +1383,7 @@ async function editTask(taskId) {
         editingTaskId = taskId;
 
         // Fetch full task data
-        const res = await fetch(`/api/task/full?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}`);
+        const res = await fetch(`/api/task/full?featureSlug=${encodeURIComponent(currentSlug)}&id=${encodeURIComponent(taskId)}&repoName=${encodeURIComponent(currentRepo)}`);
         if (!res.ok) throw new Error('Failed to load task');
 
         editingTaskData = await res.json();
@@ -1477,7 +1529,7 @@ async function saveTaskEdits(e) {
         const res = await fetch(`/api/tasks/${encodeURIComponent(editingTaskId)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ featureSlug: currentSlug, updates })
+            body: JSON.stringify({ featureSlug: currentSlug, updates, repoName: currentRepo })
         });
 
         if (!res.ok) {
@@ -1515,7 +1567,7 @@ async function confirmDeleteTask() {
     if (!deletingTaskId) return;
 
     try {
-        const res = await fetch(`/api/tasks/${encodeURIComponent(deletingTaskId)}?featureSlug=${encodeURIComponent(currentSlug)}`, {
+        const res = await fetch(`/api/tasks/${encodeURIComponent(deletingTaskId)}?featureSlug=${encodeURIComponent(currentSlug)}&repoName=${encodeURIComponent(currentRepo)}`, {
             method: 'DELETE'
         });
 

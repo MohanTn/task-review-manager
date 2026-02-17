@@ -13,9 +13,9 @@ export class DatabaseHandler {
   constructor(workspaceRoot?: string, dbPath?: string) {
     this.workspaceRoot = workspaceRoot || process.cwd();
     
-    // Default database location: tasks.db in workspace root
+    // Priority: 1) explicit dbPath, 2) DATABASE_PATH env var, 3) tasks.db in workspace root
     const defaultDbPath = path.join(this.workspaceRoot, 'tasks.db');
-    const finalDbPath = dbPath || defaultDbPath;
+    const finalDbPath = dbPath || process.env.DATABASE_PATH || defaultDbPath;
     
     // Ensure directory exists before opening database
     const dbDir = path.dirname(finalDbPath);
@@ -761,17 +761,20 @@ export class DatabaseHandler {
    * Register a new repository
    */
   registerRepo(repoName: string, repoPath: string, repoUrl?: string, defaultBranch?: string, metadata?: Record<string, any>): void {
+    // Check if repo already exists
+    const existing = this.db.prepare(`
+      SELECT repo_name FROM repos WHERE repo_name = ?
+    `).get(repoName);
+
+    if (existing) {
+      throw new Error(`Repository "${repoName}" is already registered`);
+    }
+
     const now = new Date().toISOString();
 
     this.db.prepare(`
       INSERT INTO repos (repo_name, repo_path, repo_url, default_branch, created_at, last_accessed_at, metadata)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(repo_name) DO UPDATE SET
-        repo_path = excluded.repo_path,
-        repo_url = excluded.repo_url,
-        default_branch = excluded.default_branch,
-        metadata = excluded.metadata,
-        last_accessed_at = excluded.last_accessed_at
     `).run(
       repoName,
       repoPath,

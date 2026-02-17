@@ -773,10 +773,14 @@ export class TaskReviewManager {
   async createFeature(input: CreateFeatureInput): Promise<CreateFeatureResult> {
     try {
       this.dbHandler.createFeature(input.featureSlug, input.featureName, input.repoName);
+      
+      // Initialize refinement steps (Steps 1-8)
+      this.dbHandler.initializeRefinementSteps(input.repoName, input.featureSlug);
+      
       return {
         success: true,
         featureSlug: input.featureSlug,
-        message: `Feature '${input.featureName}' created with slug '${input.featureSlug}'`,
+        message: `Feature '${input.featureName}' created with slug '${input.featureSlug}' and 8 refinement steps initialized`,
       };
     } catch (error) {
       return {

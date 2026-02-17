@@ -2,6 +2,15 @@
 
 An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that orchestrates **feature refinement** and **development execution** through multi-stakeholder review workflows. Built for AI-assisted software teams that want structured, auditable task pipelines — from idea to merged code.
 
+## 🎯 Key Features
+
+- **🐳 Docker-based with Shared Database** — Single SQLite instance shared across all VS Code/Claude Desktop instances
+- **🔄 Multi-Repository Support** — Manage tasks across multiple codebases from any editor
+- **👥 Multi-Stakeholder Reviews** — Product Director → Architect → Lead → CFO → CSO approval chain
+- **📊 Real-time Dashboard** — Web UI with auto-refresh and repository switching
+- **✅ Development Workflow** — Developer → Code Reviewer → QA → Done lifecycle
+- **💾 No External Dependencies** — Everything stored in local SQLite
+
 ## What It Does
 
 Task Review Manager gives your AI coding agent (Claude Code, Copilot, Cursor, etc.) a set of tools to:
@@ -10,33 +19,78 @@ Task Review Manager gives your AI coding agent (Claude Code, Copilot, Cursor, et
 2. **Execute development** — Drive each approved task through a Developer → Code Reviewer → QA pipeline with automatic state transitions, acceptance criteria tracking, and full audit history.
 3. **Track progress** — Query task status, filter by workflow stage, and view a real-time web dashboard.
 
-Everything is stored in a local SQLite database. No external services required.
-
 ---
 
 ## Quick Start
 
-### 1. Install
+### 1. Prerequisites
+
+- **Docker Desktop** installed and running ([Download here](https://www.docker.com/products/docker-desktop))
+  - For Windows: Docker Desktop with WSL2 backend recommended
+  - For Mac: Docker Desktop for Mac
+  - For Linux: Docker Engine and Docker Compose
+- VS Code or Claude Desktop with MCP support
+
+**Verify Docker is installed:**
+
+```bash
+docker --version
+docker compose version
+```
+
+### 2. Build and Start the Docker Container
 
 ```bash
 git clone https://github.com/your-org/task-review-manager.git
 cd task-review-manager
-npm install
-npm run build
+
+# Build and start the container
+docker-compose up -d
 ```
 
-Requires **Node.js 20+**.
+This creates a **shared SQLite database** in a Docker volume, ensuring all VS Code/Claude Desktop instances use the same database.
 
-### 2. Connect to your AI agent
+Verify the container is running:
 
-Add the server to your MCP client config. For example, in Claude Code (`~/.claude.json` or your IDE's MCP settings):
+```bash
+docker ps | grep task-review-manager-mcp
+```
+
+### 3. Connect to your AI agent
+
+Add the server to your MCP client config. For **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
   "mcpServers": {
     "task-review-manager": {
-      "command": "node",
-      "args": ["/absolute/path/to/task-review-manager/dist/bundle.js"]
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "task-review-manager-mcp",
+        "node",
+        "dist/bundle.js"
+      ]
+    }
+  }
+}
+```
+
+For **VS Code with Cline/Continue** (`.vscode/settings.json` or global settings):
+
+```json
+{
+  "mcp.servers": {
+    "task-review-manager": {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "task-review-manager-mcp",
+        "node",
+        "dist/bundle.js"
+      ]
     }
   }
 }
@@ -44,7 +98,7 @@ Add the server to your MCP client config. For example, in Claude Code (`~/.claud
 
 Restart your AI agent. The tools will be available immediately.
 
-### 3. Use the workflows
+### 4. Use the workflows
 
 The server ships with two prompt workflows you can invoke as slash commands:
 
@@ -54,6 +108,69 @@ The server ships with two prompt workflows you can invoke as slash commands:
 | `/dev-workflow` | Takes an approved feature slug, implements each task through dev → review → QA → done |
 
 Or call any of the 12 MCP tools directly from your agent.
+
+---
+
+## Docker Management
+
+### Shared Database
+
+The Docker setup uses a named volume (`task-review-data`) to persist the SQLite database. This ensures:
+- **Single source of truth** — All VS Code/Claude Desktop instances share the same database
+- **Data persistence** — Database survives container restarts
+- **Multi-repo support** — Manage multiple repositories from any IDE instance
+
+### Common Commands
+
+```bash
+# Start the container
+docker compose up -d
+
+# Stop the container
+docker compose down
+
+# View logs
+docker logs task-review-manager-mcp
+
+# Rebuild after code changes
+docker compose up -d --build
+
+# Access the database directly
+docker exec -it task-review-manager-mcp sqlite3 /data/tasks.db
+
+# Backup the database
+docker cp task-review-manager-mcp:/data/tasks.db ./tasks-backup.db
+
+# Restore the database
+docker cp ./tasks-backup.db task-review-manager-mcp:/data/tasks.db
+```
+
+### Accessing the Dashboard
+
+The dashboard runs on **port 5111** and is accessible via the Docker container:
+
+**Option 1: Using exposed port (default in docker-compose.yml)**
+
+Simply open **http://localhost:5111** in your browser. The dashboard is automatically available when the container is running.
+
+**Option 2: Run dashboard manually inside container**
+
+```bash
+docker exec -d task-review-manager-mcp node dist/dashboard.js
+```
+
+The dashboard shows:
+- Task status overview with completion tracking
+- Color-coded status indicators
+- Repository selector (switch between repos)
+- Filter tasks by status
+- Auto-refresh every 5 seconds
+
+For local development (non-Docker):
+
+```bash
+npm run dashboard
+```
 
 ---
 
@@ -166,9 +283,16 @@ src/
 .github/prompts/
 ├── refine-feature.prompt.md # Refinement workflow prompt
 └── dev-workflow.prompt.md   # Development workflow prompt
+
+Docker files:
+├── Dockerfile               # Container image definition
+├── docker-compose.yml       # Container orchestration
+└── .dockerignore           # Build optimization
 ```
 
-**Storage:** SQLite database at `tasks.db` in your workspace root.
+**Storage:** 
+- **Docker:** SQLite database at `/data/tasks.db` (persistent volume `task-review-data`)
+- **Local:** SQLite database at `./tasks.db` in workspace root
 
 ---
 
@@ -176,12 +300,26 @@ src/
 
 ### Environment Variables
 
-None required. The server uses convention-based defaults:
-
-| Setting | Default | Description |
+| Variable | Default | Description |
 |---|---|---|
-| Database path | `./tasks.db` | SQLite database location |
+| `DATABASE_PATH` | `./tasks.db` | SQLite database location (set to `/data/tasks.db` in Docker) |
 | Dashboard port | `5111` | Web dashboard port |
+
+### Docker Volume
+
+The Docker setup uses a named volume for persistent storage:
+
+```yaml
+volumes:
+  task-review-data:  # Stores /data/tasks.db
+```
+
+To reset the database, remove the volume:
+
+```bash
+docker compose down -v
+docker compose up -d
+```
 
 ### Migrating from JSON files
 
@@ -197,12 +335,50 @@ This scans `.github/artifacts/*/task.json` and imports all features into the SQL
 
 ## Development
 
+### Docker Development
+
 ```bash
-npm run dev       # Watch mode with auto-recompile
-npm run build     # Production build → dist/bundle.js
-npm test          # Run tests
-npm run lint      # Lint TypeScript
+# Rebuild container after code changes
+docker-compose up -d --build
+
+# View real-time logs
+docker logs -f task-review-manager-mcp
+
+# Run tests inside container
+docker exec -it task-review-manager-mcp npm test
+
+# Access container shell
+docker exec -it task-review-manager-mcp sh
 ```
+
+### Local Development (Non-Docker)
+
+If you prefer to develop without Docker:
+
+```bash
+# Install dependencies
+npm install
+
+# Watch mode with auto-recompile
+npm run dev
+
+# Production build
+npm run build
+
+# Run tests
+npm test
+
+# Lint TypeScript
+npm run lint
+
+# Start local MCP server (uses ./tasks.db)
+npm start
+
+# Run dashboard
+npm run dashboard
+```
+
+**Note:** Local development creates a separate `tasks.db` file in your project directory, which won't be shared with Docker instances.
 
 ---
 

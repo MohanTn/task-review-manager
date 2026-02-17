@@ -28,19 +28,20 @@ export function startDashboard(port: number = 5111) {
   // API Endpoints
 
   /**
-   * GET /api/tasks?featureSlug=<slug>
+   * GET /api/tasks?featureSlug=<slug>&repoName=<repo>
    * Get all tasks from a feature
    */
   app.get('/api/tasks', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
+      const repoName = (req.query.repoName as string) || 'default';
 
       if (!featureSlug) {
         res.status(400).json({ error: 'Feature slug is required' });
         return;
       }
 
-      const summary = await reviewManager.getReviewSummary('default', featureSlug);
+      const summary = await reviewManager.getReviewSummary(repoName, featureSlug);
       res.json(summary);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -50,20 +51,21 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * GET /api/task?featureSlug=<slug>&id=<taskId>
+   * GET /api/task?featureSlug=<slug>&id=<taskId>&repoName=<repo>
    * Get detailed information about a specific task
    */
   app.get('/api/task', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
       const taskId = req.query.id as string;
+      const repoName = (req.query.repoName as string) || 'default';
 
       if (!featureSlug || !taskId) {
         res.status(400).json({ error: 'Feature slug and task ID are required' });
         return;
       }
 
-      const status = await reviewManager.getTaskStatus('default', featureSlug, taskId);
+      const status = await reviewManager.getTaskStatus(repoName, featureSlug, taskId);
       res.json(status);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -73,13 +75,14 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * GET /api/tasks/by-status?featureSlug=<slug>&status=<status>
+   * GET /api/tasks/by-status?featureSlug=<slug>&status=<status>&repoName=<repo>
    * Get tasks filtered by status
    */
   app.get('/api/tasks/by-status', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
       const status = req.query.status as string;
+      const repoName = (req.query.repoName as string) || 'default';
       
       if (!featureSlug || !status) {
         res.status(400).json({ error: 'Feature slug and status are required' });
@@ -87,7 +90,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.getTasksByStatus({
-        repoName: 'default',
+        repoName,
         featureSlug,
         status: status as any,
       });
@@ -101,12 +104,13 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * GET /api/verify-complete?featureSlug=<slug>
+   * GET /api/verify-complete?featureSlug=<slug>&repoName=<repo>
    * Check if all tasks are complete
    */
   app.get('/api/verify-complete', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
+      const repoName = (req.query.repoName as string) || 'default';
       
       if (!featureSlug) {
         res.status(400).json({ error: 'Feature slug is required' });
@@ -114,7 +118,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.verifyAllTasksComplete({
-        repoName: 'default',
+        repoName,
         featureSlug,
       });
       
@@ -139,12 +143,28 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * GET /api/features
-   * Get all features
+   * GET /api/repos
+   * List all registered repositories
    */
-  app.get('/api/features', (_req, res) => {
+  app.get('/api/repos', (_req, res) => {
     try {
-      const features = reviewManager['dbHandler'].getAllFeatures();
+      const result = reviewManager.listRepos();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  /**
+   * GET /api/features?repoName=<repo>
+   * Get all features for a repository
+   */
+  app.get('/api/features', (req, res) => {
+    try {
+      const repoName = (req.query.repoName as string) || 'default';
+      const features = reviewManager['dbHandler'].getAllFeatures(repoName);
       res.json({ success: true, features });
     } catch (error) {
       res.status(500).json({ 
@@ -159,14 +179,14 @@ export function startDashboard(port: number = 5111) {
    */
   app.post('/api/features', async (req, res): Promise<void> => {
     try {
-      const { featureSlug, featureName } = req.body;
+      const { featureSlug, featureName, repoName } = req.body;
       
       if (!featureSlug || !featureName) {
         res.status(400).json({ error: 'Feature slug and name are required' });
         return;
       }
 
-      reviewManager['dbHandler'].createFeature(featureSlug, featureName);
+      reviewManager['dbHandler'].createFeature(featureSlug, featureName, repoName || 'default');
       res.json({ success: true, message: 'Feature created successfully' });
     } catch (error) {
       res.status(500).json({ 
@@ -176,19 +196,20 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * DELETE /api/features/:featureSlug
+   * DELETE /api/features/:featureSlug?repoName=<repo>
    * Delete a feature
    */
   app.delete('/api/features/:featureSlug', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.params.featureSlug;
+      const repoName = (req.query.repoName as string) || 'default';
       
       if (!featureSlug) {
         res.status(400).json({ error: 'Feature slug is required' });
         return;
       }
 
-      reviewManager['dbHandler'].deleteFeature(featureSlug);
+      reviewManager['dbHandler'].deleteFeature(featureSlug, repoName);
       res.json({ success: true, message: 'Feature deleted successfully' });
     } catch (error) {
       res.status(500).json({ 
@@ -198,20 +219,21 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * GET /api/task/full?featureSlug=<slug>&id=<taskId>
+   * GET /api/task/full?featureSlug=<slug>&id=<taskId>&repoName=<repo>
    * Get full task object (with description, transitions, criteria, etc.)
    */
   app.get('/api/task/full', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
       const taskId = req.query.id as string;
+      const repoName = (req.query.repoName as string) || 'default';
 
       if (!featureSlug || !taskId) {
         res.status(400).json({ error: 'Feature slug and task ID are required' });
         return;
       }
 
-      const taskFile = await reviewManager['dbHandler'].loadByFeatureSlug(featureSlug);
+      const taskFile = await reviewManager['dbHandler'].loadByFeatureSlug(repoName, featureSlug);
       const task = taskFile.tasks.find((t: { taskId: string }) => t.taskId === taskId);
 
       if (!task) {
@@ -233,14 +255,14 @@ export function startDashboard(port: number = 5111) {
    */
   app.post('/api/tasks', async (req, res): Promise<void> => {
     try {
-      const { featureSlug, task } = req.body;
+      const { featureSlug, task, repoName } = req.body;
 
       if (!featureSlug || !task) {
         res.status(400).json({ error: 'Feature slug and task data are required' });
         return;
       }
 
-      reviewManager['dbHandler'].addTask(featureSlug, task);
+      reviewManager['dbHandler'].addTask(featureSlug, task, repoName || 'default');
       res.json({ success: true, message: 'Task added successfully' });
     } catch (error) {
       res.status(500).json({
@@ -255,7 +277,7 @@ export function startDashboard(port: number = 5111) {
    */
   app.put('/api/tasks/:taskId', async (req, res): Promise<void> => {
     try {
-      const { featureSlug, updates } = req.body;
+      const { featureSlug, updates, repoName } = req.body;
       const taskId = req.params.taskId;
 
       if (!featureSlug || !updates) {
@@ -264,7 +286,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.updateTask({
-        repoName: 'default',
+        repoName: repoName || 'default',
         featureSlug,
         taskId,
         updates,
@@ -283,12 +305,13 @@ export function startDashboard(port: number = 5111) {
   });
 
   /**
-   * DELETE /api/tasks/:taskId
+   * DELETE /api/tasks/:taskId?featureSlug=<slug>&repoName=<repo>
    * Delete a task
    */
   app.delete('/api/tasks/:taskId', async (req, res): Promise<void> => {
     try {
       const featureSlug = req.query.featureSlug as string;
+      const repoName = (req.query.repoName as string) || 'default';
       const taskId = req.params.taskId;
 
       if (!featureSlug) {
@@ -296,7 +319,7 @@ export function startDashboard(port: number = 5111) {
         return;
       }
 
-      const result = await reviewManager.deleteTask('default', featureSlug, taskId);
+      const result = await reviewManager.deleteTask(repoName, featureSlug, taskId);
 
       if (result.success) {
         res.json(result);
