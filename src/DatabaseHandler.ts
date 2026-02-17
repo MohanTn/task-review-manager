@@ -25,6 +25,7 @@ export class DatabaseHandler {
     this.db.pragma('journal_mode = WAL'); // Better concurrency
 
     this.initializeTables();
+    this.runMigrations();
     this.migrateOldRoles();
   }
 
@@ -156,6 +157,124 @@ export class DatabaseHandler {
     });
 
     migrate();
+  }
+
+  /**
+   * Run database migrations
+   * Automatically applies pending migrations on startup
+   */
+  private runMigrations(): void {
+    // Create migrations tracking table if it doesn't exist
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        applied_at TEXT NOT NULL
+      );
+    `);
+
+    // Check if multi-repo migration has been applied
+    const multiRepoMigration = this.db.prepare(`
+      SELECT * FROM _migrations WHERE name = '001_add_multi_repo_support'
+    `).get();
+
+    if (!multiRepoMigration) {
+      // Read and execute the migration
+      const __dirname = path.dirname(new URL(import.meta.url).pathname);
+      const migrationPath = path.join(__dirname, 'migrations', '001_add_multi_repo_support.sql');
+      
+      try {
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
+        this.db.exec(migrationSQL);
+        
+        // Record that migration was applied
+        this.db.prepare(`
+          INSERT INTO _migrations (name, applied_at) VALUES (?, ?)
+        `).run('001_add_multi_repo_support', new Date().toISOString());
+      } catch (error) {
+        // Migration file might not exist in production build
+        // In that case, we'll create the essential multi-repo structures inline
+        console.warn('Migration file not found, applying inline migration...');
+        this.applyMultiRepoMigrationInline();
+      }
+    }
+  }
+
+  /**
+   * Apply multi-repo migration inline (fallback if migration file not found)
+   */
+  private applyMultiRepoMigrationInline(): void {
+    try {
+      this.db.exec(`
+        BEGIN TRANSACTION;
+
+        -- Create repos table
+        CREATE TABLE IF NOT EXISTS repos (
+          repo_name TEXT PRIMARY KEY,
+          repo_path TEXT NOT NULL,
+          repo_url TEXT,
+          default_branch TEXT DEFAULT 'main',
+          created_at TEXT NOT NULL,
+          last_accessed_at TEXT NOT NULL,
+          metadata TEXT
+        );
+
+        -- Create view
+        CREATE VIEW IF NOT EXISTS v_repo_summary AS
+        SELECT
+          r.repo_name,
+          r.repo_path,
+          r.last_accessed_at,
+          COUNT(DISTINCT f.feature_slug) as feature_count,
+          COUNT(DISTINCT t.task_id) as total_tasks,
+          SUM(CASE WHEN t.status = 'Done' THEN 1 ELSE 0 END) as completed_tasks
+        FROM repos r
+        LEFT JOIN features f ON r.repo_name = f.repo_name
+        LEFT JOIN tasks t ON f.repo_name = t.repo_name AND f.feature_slug = t.feature_slug
+        GROUP BY r.repo_name, r.repo_path, r.last_accessed_at;
+
+        -- Insert default repo
+        INSERT OR IGNORE INTO repos (repo_name, repo_path, created_at, last_accessed_at)
+        VALUES ('default', '', datetime('now'), datetime('now'));
+
+        COMMIT;
+      `);
+
+      // Add repo_name columns (these might fail if already exist, that's ok)
+      const columnsToAdd = [
+        { table: 'features', column: 'repo_name' },
+        { table: 'tasks', column: 'repo_name' },
+        { table: 'transitions', column: 'repo_name' },
+        { table: 'acceptance_criteria', column: 'repo_name' },
+        { table: 'test_scenarios', column: 'repo_name' },
+        { table: 'stakeholder_reviews', column: 'repo_name' }
+      ];
+
+      for (const { table, column } of columnsToAdd) {
+        try {
+          this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+        } catch (e) {
+          // Column already exists, ignore
+        }
+      }
+
+      // Update existing records
+      this.db.exec(`
+        UPDATE features SET repo_name = 'default' WHERE repo_name IS NULL;
+        UPDATE tasks SET repo_name = 'default' WHERE repo_name IS NULL;
+        UPDATE transitions SET repo_name = 'default' WHERE repo_name IS NULL;
+        UPDATE acceptance_criteria SET repo_name = 'default' WHERE repo_name IS NULL;
+        UPDATE test_scenarios SET repo_name = 'default' WHERE repo_name IS NULL;
+        UPDATE stakeholder_reviews SET repo_name = 'default' WHERE repo_name IS NULL;
+      `);
+    } catch (error) {
+      console.error('Error applying inline migration:', error);
+    }
+
+    // Record that migration was applied
+    this.db.prepare(`
+      INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)
+    `).run('001_add_multi_repo_support', new Date().toISOString());
   }
 
   /**

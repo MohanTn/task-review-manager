@@ -1265,12 +1265,12 @@ export class TaskReviewManager {
           content += `## Refinement Steps\n\n`;
           for (const step of status.steps) {
             const icon = step.completed ? '✅' : '⏸️';
-            content += `### ${icon} Step ${step.step_number}: ${step.step_name}\n`;
+            content += `### ${icon} Step ${step.stepNumber}: ${step.stepName}\n`;
             if (step.summary) {
               content += `**Summary**: ${step.summary}\n`;
             }
-            if (step.completed_at) {
-              content += `**Completed**: ${new Date(step.completed_at).toLocaleString()}\n`;
+            if (step.completedAt) {
+              content += `**Completed**: ${new Date(step.completedAt).toLocaleString()}\n`;
             }
             content += `\n`;
           }
@@ -1278,27 +1278,27 @@ export class TaskReviewManager {
         }
 
         // Feature Acceptance Criteria
-        if (sectionsToInclude.includes('criteria') && status.featureAcceptanceCriteriaCount > 0) {
-          content += `## Feature Acceptance Criteria (${status.featureAcceptanceCriteriaCount})\n\n`;
+        if (sectionsToInclude.includes('criteria') && status.acceptanceCriteriaCount > 0) {
+          content += `## Feature Acceptance Criteria (${status.acceptanceCriteriaCount})\n\n`;
           const criteria = this.dbHandler.getFeatureAcceptanceCriteria(input.repoName, input.featureSlug);
           for (const ac of criteria) {
-            content += `- **[${ac.criterion_id}]** (${ac.priority}) ${ac.criterion}\n`;
+            content += `- **[${ac.criterionId}]** (${ac.priority}) ${ac.criterion}\n`;
           }
           content += `\n---\n\n`;
         }
 
         // Feature Test Scenarios
-        if (sectionsToInclude.includes('scenarios') && status.featureTestScenariosCount > 0) {
-          content += `## Feature Test Scenarios (${status.featureTestScenariosCount})\n\n`;
+        if (sectionsToInclude.includes('scenarios') && status.testScenariosCount > 0) {
+          content += `## Feature Test Scenarios (${status.testScenariosCount})\n\n`;
           const scenarios = this.dbHandler.getFeatureTestScenarios(input.repoName, input.featureSlug);
           for (const ts of scenarios) {
-            content += `### ${ts.scenario_id}: ${ts.title} (${ts.priority})\n`;
+            content += `### ${ts.scenarioId}: ${ts.title} (${ts.priority})\n`;
             content += `${ts.description}\n`;
             if (ts.preconditions) {
               content += `**Preconditions**: ${ts.preconditions}\n`;
             }
-            if (ts.expected_result) {
-              content += `**Expected Result**: ${ts.expected_result}\n`;
+            if (ts.expectedResult) {
+              content += `**Expected Result**: ${ts.expectedResult}\n`;
             }
             content += `\n`;
           }
@@ -1326,13 +1326,13 @@ export class TaskReviewManager {
           content += `## Analyzed Attachments (${status.attachmentsCount})\n\n`;
           const attachments = this.dbHandler.getAttachments(input.repoName, input.featureSlug);
           for (const attachment of attachments) {
-            content += `### ${attachment.attachment_name} (${attachment.attachment_type})\n`;
-            content += `${attachment.analysis_summary}\n`;
-            if (attachment.file_path) {
-              content += `**File**: ${attachment.file_path}\n`;
+            content += `### ${attachment.attachmentName} (${attachment.attachmentType})\n`;
+            content += `${attachment.analysisSummary}\n`;
+            if (attachment.filePath) {
+              content += `**File**: ${attachment.filePath}\n`;
             }
-            if (attachment.file_url) {
-              content += `**URL**: ${attachment.file_url}\n`;
+            if (attachment.fileUrl) {
+              content += `**URL**: ${attachment.fileUrl}\n`;
             }
             content += `\n`;
           }
