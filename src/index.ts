@@ -36,6 +36,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -45,7 +49,7 @@ const TOOLS = [
           description: 'Unique task identifier (e.g., T01, T02)',
         },
       },
-      required: ['featureSlug', 'taskId'],
+      required: ['repoName', 'featureSlug', 'taskId'],
     },
   },
   {
@@ -55,6 +59,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -93,7 +101,7 @@ const TOOLS = [
           },
         },
       },
-      required: ['featureSlug', 'taskId', 'stakeholder', 'decision', 'notes'],
+      required: ['repoName', 'featureSlug', 'taskId', 'stakeholder', 'decision', 'notes'],
     },
   },
   {
@@ -103,6 +111,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -112,7 +124,7 @@ const TOOLS = [
           description: 'Unique task identifier (e.g., T01, T02)',
         },
       },
-      required: ['featureSlug', 'taskId'],
+      required: ['repoName', 'featureSlug', 'taskId'],
     },
   },
   {
@@ -122,12 +134,16 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
         },
       },
-      required: ['featureSlug'],
+      required: ['repoName', 'featureSlug'],
     },
   },
   {
@@ -137,6 +153,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -151,7 +171,7 @@ const TOOLS = [
           description: 'Stakeholder role to validate',
         },
       },
-      required: ['featureSlug', 'taskId', 'stakeholder'],
+      required: ['repoName', 'featureSlug', 'taskId', 'stakeholder'],
     },
   },
   {
@@ -161,6 +181,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -204,7 +228,7 @@ const TOOLS = [
           },
         },
       },
-      required: ['featureSlug', 'taskId', 'fromStatus', 'toStatus', 'actor'],
+      required: ['repoName', 'featureSlug', 'taskId', 'fromStatus', 'toStatus', 'actor'],
     },
   },
   {
@@ -214,6 +238,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -224,7 +252,7 @@ const TOOLS = [
           description: 'Array of task statuses to filter by (e.g., ["ReadyForDevelopment", "ToDo", "NeedsChanges"])',
         },
       },
-      required: ['featureSlug', 'statusFilter'],
+      required: ['repoName', 'featureSlug', 'statusFilter'],
     },
   },
   {
@@ -234,6 +262,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -251,7 +283,7 @@ const TOOLS = [
           description: 'Whether the criterion is verified (true) or not (false)',
         },
       },
-      required: ['featureSlug', 'taskId', 'criterionId', 'verified'],
+      required: ['repoName', 'featureSlug', 'taskId', 'criterionId', 'verified'],
     },
   },
   {
@@ -261,6 +293,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
@@ -270,7 +306,7 @@ const TOOLS = [
           description: 'Task status to filter by',
         },
       },
-      required: ['featureSlug', 'status'],
+      required: ['repoName', 'featureSlug', 'status'],
     },
   },
   {
@@ -280,12 +316,16 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
         },
       },
-      required: ['featureSlug'],
+      required: ['repoName', 'featureSlug'],
     },
   },
   {
@@ -295,6 +335,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'URL-friendly feature slug (e.g., "smart-strangle-engine")',
@@ -304,7 +348,7 @@ const TOOLS = [
           description: 'Human-readable feature name (e.g., "Smart Strangle Engine")',
         },
       },
-      required: ['featureSlug', 'featureName'],
+      required: ['repoName', 'featureSlug', 'featureName'],
     },
   },
   {
@@ -314,6 +358,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug to add the task to',
@@ -382,17 +430,22 @@ const TOOLS = [
           description: 'Tags for categorization',
         },
       },
-      required: ['featureSlug', 'taskId', 'title', 'description', 'orderOfExecution'],
+      required: ['repoName', 'featureSlug', 'taskId', 'title', 'description', 'orderOfExecution'],
     },
   },
   {
     name: 'list_features',
     description:
-      'List all features with their task counts and last modified timestamps.',
+      'List all features in a repository with their task counts and last modified timestamps.',
     inputSchema: {
       type: 'object',
-      properties: {},
-      required: [],
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+      },
+      required: ['repoName'],
     },
   },
   {
@@ -402,12 +455,16 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug to delete',
         },
       },
-      required: ['featureSlug'],
+      required: ['repoName', 'featureSlug'],
     },
   },
   {
@@ -417,12 +474,16 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug name',
         },
       },
-      required: ['featureSlug'],
+      required: ['repoName', 'featureSlug'],
     },
   },
   {
@@ -432,6 +493,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug',
@@ -494,7 +559,7 @@ const TOOLS = [
           },
         },
       },
-      required: ['featureSlug', 'taskId', 'updates'],
+      required: ['repoName', 'featureSlug', 'taskId', 'updates'],
     },
   },
   {
@@ -504,6 +569,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
         featureSlug: {
           type: 'string',
           description: 'Feature slug',
@@ -513,7 +582,290 @@ const TOOLS = [
           description: 'Task ID to delete',
         },
       },
-      required: ['featureSlug', 'taskId'],
+      required: ['repoName', 'featureSlug', 'taskId'],
+    },
+  },
+  {
+    name: 'register_repo',
+    description:
+      'Register a new repository. Creates a repo entry that acts as a namespace for all features and tasks. First step before creating features in a new repo.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Unique repository name (e.g., "task-review-manager")',
+        },
+        repoPath: {
+          type: 'string',
+          description: 'Absolute path to repository root',
+        },
+        repoUrl: {
+          type: 'string',
+          description: 'Optional git repository URL',
+        },
+        defaultBranch: {
+          type: 'string',
+          description: 'Default branch name (defaults to "main")',
+        },
+        metadata: {
+          type: 'object',
+          description: 'Optional metadata as key-value pairs',
+        },
+      },
+      required: ['repoName', 'repoPath'],
+    },
+  },
+  {
+    name: 'list_repos',
+    description:
+      'List all registered repositories with their feature and task counts.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_current_repo',
+    description:
+      'Get the current repository based on working directory. Auto-detects if current directory is a registered repo.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'update_refinement_step',
+    description:
+      'Update a refinement step for a feature. Used during the 8-step refinement workflow to track progress and store step data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        stepNumber: {
+          type: 'number',
+          description: 'Step number (1-8)',
+        },
+        completed: {
+          type: 'boolean',
+          description: 'Whether the step is completed',
+        },
+        summary: {
+          type: 'string',
+          description: 'Brief summary of what was accomplished in this step',
+        },
+        data: {
+          type: 'object',
+          description: 'Step-specific data as key-value pairs',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'stepNumber', 'completed', 'summary'],
+    },
+  },
+  {
+    name: 'add_feature_acceptance_criteria',
+    description:
+      'Add acceptance criteria at the feature level (before tasks are created). Used in Step 4 of refinement workflow.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        criteria: {
+          type: 'array',
+          description: 'List of acceptance criteria',
+          items: {
+            type: 'object',
+            properties: {
+              criterionId: { type: 'string', description: 'Criterion ID (e.g., FAC-1)' },
+              criterion: { type: 'string', description: 'The acceptance criterion text' },
+              priority: { type: 'string', enum: ['Must Have', 'Should Have', 'Could Have'] },
+              source: { type: 'string', description: 'Source of criterion (e.g., "generated", "user-provided")' },
+            },
+            required: ['criterionId', 'criterion', 'priority'],
+          },
+        },
+      },
+      required: ['repoName', 'featureSlug', 'criteria'],
+    },
+  },
+  {
+    name: 'add_feature_test_scenarios',
+    description:
+      'Add test scenarios at the feature level (before tasks are created). Used in Step 5 of refinement workflow.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        scenarios: {
+          type: 'array',
+          description: 'List of test scenarios',
+          items: {
+            type: 'object',
+            properties: {
+              scenarioId: { type: 'string', description: 'Scenario ID (e.g., FTS-1)' },
+              title: { type: 'string', description: 'Test scenario title' },
+              description: { type: 'string', description: 'Test scenario description' },
+              priority: { type: 'string', enum: ['P0', 'P1', 'P2', 'P3'] },
+              type: { type: 'string', description: 'Test type (e.g., "automated", "manual")' },
+              preconditions: { type: 'string', description: 'Test preconditions' },
+              expectedResult: { type: 'string', description: 'Expected test result' },
+            },
+            required: ['scenarioId', 'title', 'description', 'priority'],
+          },
+        },
+      },
+      required: ['repoName', 'featureSlug', 'scenarios'],
+    },
+  },
+  {
+    name: 'add_clarification',
+    description:
+      'Add a clarification question and optional answer. Used in Step 3 of refinement workflow to track questions that need user input.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        question: {
+          type: 'string',
+          description: 'Clarification question',
+        },
+        answer: {
+          type: 'string',
+          description: 'Optional answer to the question',
+        },
+        askedBy: {
+          type: 'string',
+          enum: ['llm', 'user'],
+          description: 'Who asked the question (defaults to "llm")',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'question'],
+    },
+  },
+  {
+    name: 'add_attachment_analysis',
+    description:
+      'Add analysis of an attachment (screenshot, document, etc.). Used in Step 2 of refinement workflow.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        attachmentName: {
+          type: 'string',
+          description: 'Name of the attachment',
+        },
+        attachmentType: {
+          type: 'string',
+          enum: ['excel', 'image', 'document', 'design'],
+          description: 'Type of attachment',
+        },
+        analysisSummary: {
+          type: 'string',
+          description: 'Summary of the analysis',
+        },
+        filePath: {
+          type: 'string',
+          description: 'Optional local file path',
+        },
+        fileUrl: {
+          type: 'string',
+          description: 'Optional URL to the file',
+        },
+        extractedData: {
+          type: 'object',
+          description: 'Optional extracted data as key-value pairs',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'attachmentName', 'attachmentType', 'analysisSummary'],
+    },
+  },
+  {
+    name: 'get_refinement_status',
+    description:
+      'Get comprehensive status of feature refinement including all steps, criteria, scenarios, and progress percentage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+      },
+      required: ['repoName', 'featureSlug'],
+    },
+  },
+  {
+    name: 'generate_refinement_report',
+    description:
+      'Generate a formatted report of the entire refinement process. Supports markdown, HTML, and JSON formats. Returns a complete summary ready for documentation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug',
+        },
+        format: {
+          type: 'string',
+          enum: ['markdown', 'html', 'json'],
+          description: 'Output format (defaults to "markdown")',
+        },
+        outputPath: {
+          type: 'string',
+          description: 'Optional file path to save the report',
+        },
+        includeSections: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional list of sections to include (defaults to all: steps, criteria, scenarios, clarifications, attachments)',
+        },
+      },
+      required: ['repoName', 'featureSlug'],
     },
   },
 ];
@@ -537,6 +889,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'get_next_step': {
         const result = await reviewManager.getNextStep({
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
         });
@@ -553,6 +906,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'add_stakeholder_review': {
         const input: ReviewInput = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
           stakeholder: args.stakeholder as StakeholderRole,
@@ -575,6 +929,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_task_status': {
         const result = await reviewManager.getTaskStatus(
+          args.repoName as string,
           args.featureSlug as string,
           args.taskId as string
         );
@@ -590,7 +945,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'get_review_summary': {
-        const result = await reviewManager.getReviewSummary(args.featureSlug as string);
+        const result = await reviewManager.getReviewSummary(
+          args.repoName as string,
+          args.featureSlug as string
+        );
 
         return {
           content: [
@@ -604,6 +962,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'validate_workflow': {
         const result = await reviewManager.validateWorkflow(
+          args.repoName as string,
           args.featureSlug as string,
           args.taskId as string,
           args.stakeholder as StakeholderRole
@@ -621,6 +980,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'transition_task_status': {
         const input = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
           fromStatus: args.fromStatus as any,
@@ -644,6 +1004,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_next_task': {
         const input = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           statusFilter: args.statusFilter as any[],
         };
@@ -662,6 +1023,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'update_acceptance_criteria': {
         const input = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
           criterionId: args.criterionId as string,
@@ -682,6 +1044,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_tasks_by_status': {
         const input = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           status: args.status as any,
         };
@@ -700,6 +1063,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'verify_all_tasks_complete': {
         const input = {
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
         };
 
@@ -717,6 +1081,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'create_feature': {
         const result = await reviewManager.createFeature({
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           featureName: args.featureName as string,
         });
@@ -733,6 +1098,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'add_task': {
         const result = await reviewManager.addTask({
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
           title: args.title as string,
@@ -757,7 +1123,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'list_features': {
-        const result = await reviewManager.listFeatures();
+        const result = await reviewManager.listFeatures(args.repoName as string);
 
         return {
           content: [
@@ -770,7 +1136,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'delete_feature': {
-        const result = await reviewManager.deleteFeature(args.featureSlug as string);
+        const result = await reviewManager.deleteFeature(
+          args.repoName as string,
+          args.featureSlug as string
+        );
 
         return {
           content: [
@@ -783,7 +1152,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'get_feature': {
-        const result = await reviewManager.getFeature(args.featureSlug as string);
+        const result = await reviewManager.getFeature(
+          args.repoName as string,
+          args.featureSlug as string
+        );
 
         return {
           content: [
@@ -797,6 +1169,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'update_task': {
         const result = await reviewManager.updateTask({
+          repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskId: args.taskId as string,
           updates: args.updates as any,
@@ -814,9 +1187,185 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'delete_task': {
         const result = await reviewManager.deleteTask(
+          args.repoName as string,
           args.featureSlug as string,
           args.taskId as string
         );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'register_repo': {
+        const result = await reviewManager.registerRepo({
+          repoName: args.repoName as string,
+          repoPath: args.repoPath as string,
+          repoUrl: args.repoUrl as string | undefined,
+          defaultBranch: args.defaultBranch as string | undefined,
+          metadata: args.metadata as Record<string, any> | undefined,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'list_repos': {
+        const result = await reviewManager.listRepos();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_current_repo': {
+        const result = await reviewManager.getCurrentRepo();
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_refinement_step': {
+        const result = await reviewManager.updateRefinementStep({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          stepNumber: args.stepNumber as number,
+          completed: args.completed as boolean,
+          summary: args.summary as string,
+          data: args.data as Record<string, any> | undefined,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_feature_acceptance_criteria': {
+        const result = await reviewManager.addFeatureAcceptanceCriteria({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          criteria: args.criteria as any[],
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_feature_test_scenarios': {
+        const result = await reviewManager.addFeatureTestScenarios({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          scenarios: args.scenarios as any[],
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_clarification': {
+        const result = await reviewManager.addClarification({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          question: args.question as string,
+          answer: args.answer as string | undefined,
+          askedBy: (args.askedBy as 'llm' | 'user') || 'llm',
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'add_attachment_analysis': {
+        const result = await reviewManager.addAttachmentAnalysis({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          attachmentName: args.attachmentName as string,
+          attachmentType: args.attachmentType as 'excel' | 'image' | 'document' | 'design',
+          analysisSummary: args.analysisSummary as string,
+          filePath: args.filePath as string | undefined,
+          fileUrl: args.fileUrl as string | undefined,
+          extractedData: args.extractedData as Record<string, any> | undefined,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_refinement_status': {
+        const result = await reviewManager.getRefinementStatus({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'generate_refinement_report': {
+        const result = await reviewManager.generateRefinementReport({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          format: (args.format as 'markdown' | 'html' | 'json') || 'markdown',
+          outputPath: args.outputPath as string | undefined,
+          includeSections: args.includeSections as string[] | undefined,
+        });
 
         return {
           content: [

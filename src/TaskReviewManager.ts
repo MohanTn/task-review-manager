@@ -34,6 +34,24 @@ import {
   UpdateTaskInput,
   UpdateTaskResult,
   DeleteTaskResult,
+  RegisterRepoInput,
+  RegisterRepoResult,
+  ListReposResult,
+  GetCurrentRepoResult,
+  UpdateRefinementStepInput,
+  UpdateRefinementStepResult,
+  AddFeatureAcceptanceCriteriaInput,
+  AddFeatureAcceptanceCriteriaResult,
+  AddFeatureTestScenariosInput,
+  AddFeatureTestScenariosResult,
+  AddClarificationInput,
+  AddClarificationResult,
+  AddAttachmentAnalysisInput,
+  AddAttachmentAnalysisResult,
+  GetRefinementStatusInput,
+  GetRefinementStatusResult,
+  GenerateRefinementReportInput,
+  GenerateRefinementReportResult,
 } from './types.js';
 import { DatabaseHandler } from './DatabaseHandler.js';
 import { WorkflowValidator } from './WorkflowValidator.js';
@@ -54,13 +72,13 @@ export class TaskReviewManager {
   async addReview(input: ReviewInput): Promise<ReviewResult> {
     try {
       // 1. Validate file exists
-      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
+      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug, input.repoName);
       if (!fileValidation.valid) {
         throw new Error(`Invalid task file: ${fileValidation.error}`);
       }
 
       // 2. Load task file with lock
-      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug, input.repoName);
 
       // 3. Find specific task
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
@@ -144,7 +162,7 @@ export class TaskReviewManager {
       task.transitions.push(transition);
 
       // 10. Save atomically
-      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile);
+      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile, input.repoName);
 
       return {
         success: true,
@@ -177,9 +195,9 @@ export class TaskReviewManager {
   /**
    * Get status of a specific task
    */
-  async getTaskStatus(featureSlug: string, taskId: string): Promise<TaskStatusResult> {
+  async getTaskStatus(repoName: string, featureSlug: string, taskId: string): Promise<TaskStatusResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug, repoName);
 
       const task = taskFile.tasks.find((t) => t.taskId === taskId);
       if (!task) {
@@ -208,9 +226,9 @@ export class TaskReviewManager {
   /**
    * Generate review summary for all tasks
    */
-  async getReviewSummary(featureSlug: string): Promise<ReviewSummary> {
+  async getReviewSummary(repoName: string, featureSlug: string): Promise<ReviewSummary> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug, repoName);
 
       // Count tasks by status
       const tasksByStatus: Record<TaskStatus, number> = {
@@ -284,12 +302,13 @@ export class TaskReviewManager {
    * Validate workflow before performing a review
    */
   async validateWorkflow(
+    repoName: string,
     featureSlug: string,
     taskId: string,
     stakeholder: StakeholderRole
   ): Promise<ValidationResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug, repoName);
 
       const task = taskFile.tasks.find((t) => t.taskId === taskId);
       if (!task) {
@@ -336,7 +355,7 @@ export class TaskReviewManager {
    */
   async getNextStep(input: GetNextStepInput): Promise<GetNextStepResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug, input.repoName);
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
       if (!task) {
         throw new Error(`Task not found: ${input.taskId}`);
@@ -518,13 +537,13 @@ export class TaskReviewManager {
   async transitionTaskStatus(input: TransitionTaskInput): Promise<TransitionTaskResult> {
     try {
       // 1. Validate file exists
-      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
+      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug, input.repoName);
       if (!fileValidation.valid) {
         throw new Error(`Invalid task file: ${fileValidation.error}`);
       }
 
       // 2. Load task file with lock
-      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug, input.repoName);
 
       // 3. Find specific task
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
@@ -565,7 +584,7 @@ export class TaskReviewManager {
       task.transitions.push(transition);
 
       // 8. Save atomically
-      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile);
+      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile, input.repoName);
 
       return {
         success: true,
@@ -601,7 +620,7 @@ export class TaskReviewManager {
    */
   async getNextTask(input: GetNextTaskInput): Promise<GetNextTaskResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug, input.repoName);
 
       const filteredTasks = taskFile.tasks.filter((t) =>
         input.statusFilter.includes(t.status)
@@ -639,12 +658,12 @@ export class TaskReviewManager {
     input: UpdateAcceptanceCriteriaInput
   ): Promise<UpdateAcceptanceCriteriaResult> {
     try {
-      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
+      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug, input.repoName);
       if (!fileValidation.valid) {
         throw new Error(`Invalid task file: ${fileValidation.error}`);
       }
 
-      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlugWithLock(input.featureSlug, input.repoName);
 
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
       if (!task) {
@@ -660,7 +679,7 @@ export class TaskReviewManager {
 
       criterion.verified = input.verified;
 
-      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile);
+      await this.dbHandler.saveByFeatureSlug(input.featureSlug, taskFile, input.repoName);
 
       return {
         success: true,
@@ -685,7 +704,7 @@ export class TaskReviewManager {
    */
   async getTasksByStatus(input: GetTasksByStatusInput): Promise<GetTasksByStatusResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug, input.repoName);
 
       const tasks = taskFile.tasks.filter((t) => t.status === input.status);
 
@@ -712,7 +731,7 @@ export class TaskReviewManager {
     input: VerifyAllTasksCompleteInput
   ): Promise<VerifyAllTasksCompleteResult> {
     try {
-      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug, input.repoName);
 
       const totalTasks = taskFile.tasks.length;
       const completedTasks = taskFile.tasks.filter((t) => t.status === 'Done').length;
@@ -753,7 +772,7 @@ export class TaskReviewManager {
    */
   async createFeature(input: CreateFeatureInput): Promise<CreateFeatureResult> {
     try {
-      this.dbHandler.createFeature(input.featureSlug, input.featureName);
+      this.dbHandler.createFeature(input.featureSlug, input.featureName, input.repoName);
       return {
         success: true,
         featureSlug: input.featureSlug,
@@ -786,7 +805,7 @@ export class TaskReviewManager {
         tags: input.tags,
       };
 
-      const taskId = this.dbHandler.addTask(input.featureSlug, task);
+      const taskId = this.dbHandler.addTask(input.featureSlug, task, input.repoName);
       return {
         success: true,
         featureSlug: input.featureSlug,
@@ -806,9 +825,9 @@ export class TaskReviewManager {
   /**
    * List all features
    */
-  async listFeatures(): Promise<ListFeaturesResult> {
+  async listFeatures(repoName: string): Promise<ListFeaturesResult> {
     try {
-      const features = this.dbHandler.getAllFeatures();
+      const features = this.dbHandler.getAllFeatures(repoName);
       return {
         success: true,
         features,
@@ -826,9 +845,9 @@ export class TaskReviewManager {
   /**
    * Delete a feature and all its tasks
    */
-  async deleteFeature(featureSlug: string): Promise<DeleteFeatureResult> {
+  async deleteFeature(repoName: string, featureSlug: string): Promise<DeleteFeatureResult> {
     try {
-      this.dbHandler.deleteFeature(featureSlug);
+      this.dbHandler.deleteFeature(featureSlug, repoName);
       return {
         success: true,
         featureSlug,
@@ -846,9 +865,9 @@ export class TaskReviewManager {
   /**
    * Get a complete feature with all tasks
    */
-  async getFeature(featureSlug: string): Promise<GetFeatureResult> {
+  async getFeature(repoName: string, featureSlug: string): Promise<GetFeatureResult> {
     try {
-      const feature = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const feature = await this.dbHandler.loadByFeatureSlug(featureSlug, repoName);
       return {
         success: true,
         feature,
@@ -868,13 +887,13 @@ export class TaskReviewManager {
   async updateTask(input: UpdateTaskInput): Promise<UpdateTaskResult> {
     try {
       // Validate feature exists
-      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug);
+      const fileValidation = await this.dbHandler.validateFeatureSlug(input.featureSlug, input.repoName);
       if (!fileValidation.valid) {
         throw new Error(`Invalid feature: ${fileValidation.error}`);
       }
 
       // Load task to verify it exists
-      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(input.featureSlug, input.repoName);
       const task = taskFile.tasks.find((t) => t.taskId === input.taskId);
       if (!task) {
         throw new Error(`Task not found: ${input.taskId}`);
@@ -891,7 +910,7 @@ export class TaskReviewManager {
       }
 
       // Perform the update
-      this.dbHandler.updateTask(input.featureSlug, input.taskId, input.updates as Partial<Task>);
+      this.dbHandler.updateTask(input.featureSlug, input.taskId, input.updates as Partial<Task>, input.repoName);
 
       return {
         success: true,
@@ -912,16 +931,16 @@ export class TaskReviewManager {
   /**
    * Delete a task
    */
-  async deleteTask(featureSlug: string, taskId: string): Promise<DeleteTaskResult> {
+  async deleteTask(repoName: string, featureSlug: string, taskId: string): Promise<DeleteTaskResult> {
     try {
       // Validate feature exists
-      const fileValidation = await this.dbHandler.validateFeatureSlug(featureSlug);
+      const fileValidation = await this.dbHandler.validateFeatureSlug(featureSlug, repoName);
       if (!fileValidation.valid) {
         throw new Error(`Invalid feature: ${fileValidation.error}`);
       }
 
       // Load task file to check for dependencies
-      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug);
+      const taskFile = await this.dbHandler.loadByFeatureSlug(featureSlug, repoName);
       const task = taskFile.tasks.find((t) => t.taskId === taskId);
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
@@ -933,7 +952,7 @@ export class TaskReviewManager {
       );
 
       // Perform deletion
-      this.dbHandler.deleteTask(featureSlug, taskId);
+      this.dbHandler.deleteTask(featureSlug, taskId, repoName);
 
       let message = `Task '${taskId}' deleted successfully`;
       if (dependentTasks.length > 0) {
@@ -952,6 +971,396 @@ export class TaskReviewManager {
         success: false,
         featureSlug,
         taskId,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Register a new repository
+   */
+  async registerRepo(input: RegisterRepoInput): Promise<RegisterRepoResult> {
+    try {
+      this.dbHandler.registerRepo(
+        input.repoName,
+        input.repoPath,
+        input.repoUrl,
+        input.defaultBranch,
+        input.metadata
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        message: `Repository '${input.repoName}' registered successfully at path '${input.repoPath}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * List all registered repositories
+   */
+  async listRepos(): Promise<ListReposResult> {
+    try {
+      const repos = this.dbHandler.getAllRepos();
+      return {
+        success: true,
+        repos,
+        message: `Found ${repos.length} registered repository(ies)`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repos: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get current repository based on working directory
+   */
+  async getCurrentRepo(): Promise<GetCurrentRepoResult> {
+    try {
+      const currentRepo = this.dbHandler.getCurrentRepo();
+      if (!currentRepo) {
+        return {
+          success: false,
+          registered: false,
+          error: 'No repository found for current working directory',
+        };
+      }
+      return {
+        success: true,
+        ...currentRepo,
+        message: currentRepo.registered
+          ? `Current repo: ${currentRepo.repoName}`
+          : `Working directory ${currentRepo.repoPath} is not registered. Use register_repo first.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        registered: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Update a refinement step
+   */
+  async updateRefinementStep(input: UpdateRefinementStepInput): Promise<UpdateRefinementStepResult> {
+    try {
+      this.dbHandler.updateRefinementStep(
+        input.repoName,
+        input.featureSlug,
+        input.stepNumber,
+        input.completed,
+        input.summary,
+        input.data
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        stepNumber: input.stepNumber,
+        completed: input.completed,
+        message: `Refinement step ${input.stepNumber} updated for feature '${input.featureSlug}' (${input.completed ? 'completed' : 'in progress'})`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        stepNumber: input.stepNumber,
+        completed: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Add feature-level acceptance criteria
+   */
+  async addFeatureAcceptanceCriteria(input: AddFeatureAcceptanceCriteriaInput): Promise<AddFeatureAcceptanceCriteriaResult> {
+    try {
+      const count = this.dbHandler.addFeatureAcceptanceCriteria(
+        input.repoName,
+        input.featureSlug,
+        input.criteria
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        criteriaAdded: count,
+        message: `Added ${count} acceptance criteria to feature '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        criteriaAdded: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Add feature-level test scenarios
+   */
+  async addFeatureTestScenarios(input: AddFeatureTestScenariosInput): Promise<AddFeatureTestScenariosResult> {
+    try {
+      const count = this.dbHandler.addFeatureTestScenarios(
+        input.repoName,
+        input.featureSlug,
+        input.scenarios
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        scenariosAdded: count,
+        message: `Added ${count} test scenarios to feature '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        scenariosAdded: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Add a clarification question
+   */
+  async addClarification(input: AddClarificationInput): Promise<AddClarificationResult> {
+    try {
+      const clarificationId = this.dbHandler.addClarification(
+        input.repoName,
+        input.featureSlug,
+        input.question,
+        input.answer,
+        input.askedBy
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        clarificationId,
+        message: `Clarification added to feature '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        clarificationId: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Add attachment analysis
+   */
+  async addAttachmentAnalysis(input: AddAttachmentAnalysisInput): Promise<AddAttachmentAnalysisResult> {
+    try {
+      const attachmentId = this.dbHandler.addAttachmentAnalysis(
+        input.repoName,
+        input.featureSlug,
+        input.attachmentName,
+        input.attachmentType,
+        input.analysisSummary,
+        input.filePath,
+        input.fileUrl,
+        input.extractedData
+      );
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        attachmentId,
+        message: `Attachment '${input.attachmentName}' analyzed and saved for feature '${input.featureSlug}'`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        attachmentId: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Get refinement status for a feature
+   */
+  async getRefinementStatus(input: GetRefinementStatusInput): Promise<GetRefinementStatusResult> {
+    try {
+      const status = this.dbHandler.getRefinementStatus(input.repoName, input.featureSlug);
+      return {
+        success: true,
+        ...status,
+        message: `Refinement status retrieved for feature '${input.featureSlug}' (${status.progressPercentage}% complete)`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        featureName: '',
+        currentStep: '',
+        progressPercentage: 0,
+        completedSteps: 0,
+        totalSteps: 0,
+        steps: [],
+        acceptanceCriteriaCount: 0,
+        testScenariosCount: 0,
+        clarificationsCount: 0,
+        attachmentsCount: 0,
+        tasksCount: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Generate a refinement report in specified format
+   */
+  async generateRefinementReport(input: GenerateRefinementReportInput): Promise<GenerateRefinementReportResult> {
+    try {
+      const status = this.dbHandler.getRefinementStatus(input.repoName, input.featureSlug);
+
+      // Determine which sections to include
+      const allSections = ['steps', 'criteria', 'scenarios', 'clarifications', 'attachments'];
+      const sectionsToInclude = input.includeSections || allSections;
+
+      let content = '';
+
+      if (input.format === 'markdown') {
+        // Build markdown report
+        content = `# Feature Refinement Report: ${status.featureName}\n\n`;
+        content += `**Feature Slug**: ${input.featureSlug}  \n`;
+        content += `**Repository**: ${input.repoName}  \n`;
+        content += `**Progress**: ${status.progressPercentage}% (${status.completedSteps}/${status.totalSteps} steps)  \n\n`;
+        content += `---\n\n`;
+
+        // Refinement steps
+        if (sectionsToInclude.includes('steps')) {
+          content += `## Refinement Steps\n\n`;
+          for (const step of status.steps) {
+            const icon = step.completed ? '✅' : '⏸️';
+            content += `### ${icon} Step ${step.step_number}: ${step.step_name}\n`;
+            if (step.summary) {
+              content += `**Summary**: ${step.summary}\n`;
+            }
+            if (step.completed_at) {
+              content += `**Completed**: ${new Date(step.completed_at).toLocaleString()}\n`;
+            }
+            content += `\n`;
+          }
+          content += `---\n\n`;
+        }
+
+        // Feature Acceptance Criteria
+        if (sectionsToInclude.includes('criteria') && status.featureAcceptanceCriteriaCount > 0) {
+          content += `## Feature Acceptance Criteria (${status.featureAcceptanceCriteriaCount})\n\n`;
+          const criteria = this.dbHandler.getFeatureAcceptanceCriteria(input.repoName, input.featureSlug);
+          for (const ac of criteria) {
+            content += `- **[${ac.criterion_id}]** (${ac.priority}) ${ac.criterion}\n`;
+          }
+          content += `\n---\n\n`;
+        }
+
+        // Feature Test Scenarios
+        if (sectionsToInclude.includes('scenarios') && status.featureTestScenariosCount > 0) {
+          content += `## Feature Test Scenarios (${status.featureTestScenariosCount})\n\n`;
+          const scenarios = this.dbHandler.getFeatureTestScenarios(input.repoName, input.featureSlug);
+          for (const ts of scenarios) {
+            content += `### ${ts.scenario_id}: ${ts.title} (${ts.priority})\n`;
+            content += `${ts.description}\n`;
+            if (ts.preconditions) {
+              content += `**Preconditions**: ${ts.preconditions}\n`;
+            }
+            if (ts.expected_result) {
+              content += `**Expected Result**: ${ts.expected_result}\n`;
+            }
+            content += `\n`;
+          }
+          content += `---\n\n`;
+        }
+
+        // Clarifications
+        if (sectionsToInclude.includes('clarifications') && status.clarificationsCount > 0) {
+          content += `## Clarifications (${status.clarificationsCount})\n\n`;
+          const clarifications = this.dbHandler.getClarifications(input.repoName, input.featureSlug);
+          for (const clarification of clarifications) {
+            content += `**Q**: ${clarification.question}\n`;
+            if (clarification.answer) {
+              content += `**A**: ${clarification.answer}\n`;
+            } else {
+              content += `**A**: _Pending response_\n`;
+            }
+            content += `\n`;
+          }
+          content += `---\n\n`;
+        }
+
+        // Attachments
+        if (sectionsToInclude.includes('attachments') && status.attachmentsCount > 0) {
+          content += `## Analyzed Attachments (${status.attachmentsCount})\n\n`;
+          const attachments = this.dbHandler.getAttachments(input.repoName, input.featureSlug);
+          for (const attachment of attachments) {
+            content += `### ${attachment.attachment_name} (${attachment.attachment_type})\n`;
+            content += `${attachment.analysis_summary}\n`;
+            if (attachment.file_path) {
+              content += `**File**: ${attachment.file_path}\n`;
+            }
+            if (attachment.file_url) {
+              content += `**URL**: ${attachment.file_url}\n`;
+            }
+            content += `\n`;
+          }
+        }
+      } else if (input.format === 'json') {
+        // JSON format
+        content = JSON.stringify(status, null, 2);
+      } else {
+        // HTML format (basic implementation)
+        content = `<html><head><title>Refinement Report: ${status.featureName}</title></head><body>`;
+        content += `<h1>Feature Refinement Report: ${status.featureName}</h1>`;
+        content += `<p>Progress: ${status.progressPercentage}%</p>`;
+        content += `</body></html>`;
+      }
+
+      return {
+        success: true,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        format: input.format,
+        content,
+        sectionsIncluded: sectionsToInclude,
+        message: `Refinement report generated for feature '${input.featureSlug}' in ${input.format} format`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName: input.repoName,
+        featureSlug: input.featureSlug,
+        format: input.format,
+        content: '',
+        sectionsIncluded: [],
         error: error instanceof Error ? error.message : String(error),
       };
     }

@@ -40,7 +40,7 @@ export function startDashboard(port: number = 5111) {
         return;
       }
 
-      const summary = await reviewManager.getReviewSummary(featureSlug);
+      const summary = await reviewManager.getReviewSummary('default', featureSlug);
       res.json(summary);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -63,7 +63,7 @@ export function startDashboard(port: number = 5111) {
         return;
       }
 
-      const status = await reviewManager.getTaskStatus(featureSlug, taskId);
+      const status = await reviewManager.getTaskStatus('default', featureSlug, taskId);
       res.json(status);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -87,6 +87,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.getTasksByStatus({
+        repoName: 'default',
         featureSlug,
         status: status as any,
       });
@@ -113,6 +114,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.verifyAllTasksComplete({
+        repoName: 'default',
         featureSlug,
       });
       
@@ -262,6 +264,7 @@ export function startDashboard(port: number = 5111) {
       }
 
       const result = await reviewManager.updateTask({
+        repoName: 'default',
         featureSlug,
         taskId,
         updates,
@@ -293,7 +296,7 @@ export function startDashboard(port: number = 5111) {
         return;
       }
 
-      const result = await reviewManager.deleteTask(featureSlug, taskId);
+      const result = await reviewManager.deleteTask('default', featureSlug, taskId);
 
       if (result.success) {
         res.json(result);

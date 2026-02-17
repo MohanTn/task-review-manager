@@ -147,6 +147,7 @@ export interface TaskFile {
 }
 
 export interface ReviewInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
   stakeholder: StakeholderRole;
@@ -285,6 +286,7 @@ export const DEV_WORKFLOW_RULES: Record<TaskStatus, DevWorkflowRule> = {
 // Tool input/output interfaces
 
 export interface TransitionTaskInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
   fromStatus: TaskStatus;
@@ -305,6 +307,7 @@ export interface TransitionTaskResult {
 }
 
 export interface GetNextTaskInput {
+  repoName: string;
   featureSlug: string;
   statusFilter: TaskStatus[];
 }
@@ -317,6 +320,7 @@ export interface GetNextTaskResult {
 }
 
 export interface GetNextStepInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
 }
@@ -340,6 +344,7 @@ export interface GetNextStepResult {
 }
 
 export interface UpdateAcceptanceCriteriaInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
   criterionId: string;
@@ -356,6 +361,7 @@ export interface UpdateAcceptanceCriteriaResult {
 }
 
 export interface GetTasksByStatusInput {
+  repoName: string;
   featureSlug: string;
   status: TaskStatus;
 }
@@ -369,6 +375,7 @@ export interface GetTasksByStatusResult {
 }
 
 export interface VerifyAllTasksCompleteInput {
+  repoName: string;
   featureSlug: string;
 }
 
@@ -389,6 +396,7 @@ export interface VerifyAllTasksCompleteResult {
 // Feature & Task creation types
 
 export interface CreateFeatureInput {
+  repoName: string;
   featureSlug: string;
   featureName: string;
 }
@@ -401,6 +409,7 @@ export interface CreateFeatureResult {
 }
 
 export interface AddTaskInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
   title: string;
@@ -451,6 +460,7 @@ export interface GetFeatureResult {
 // Update and Delete Task types
 
 export interface UpdateTaskInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
   updates: {
@@ -476,6 +486,7 @@ export interface UpdateTaskResult {
 }
 
 export interface DeleteTaskInput {
+  repoName: string;
   featureSlug: string;
   taskId: string;
 }
@@ -486,4 +497,326 @@ export interface DeleteTaskResult {
   taskId: string;
   message?: string;
   error?: string;
+}
+
+// ============================================================================
+// Multi-Repo Support Types
+// ============================================================================
+
+export interface Repo {
+  repoName: string;
+  repoPath: string;
+  repoUrl?: string;
+  defaultBranch: string;
+  createdAt: string;
+  lastAccessedAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface RegisterRepoInput {
+  repoName: string;
+  repoPath: string;
+  repoUrl?: string;
+  defaultBranch?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface RegisterRepoResult {
+  success: boolean;
+  repoName: string;
+  message?: string;
+  error?: string;
+}
+
+export interface ListReposResult {
+  success: boolean;
+  repos: Array<{
+    repoName: string;
+    repoPath: string;
+    featureCount: number;
+    totalTasks: number;
+    completedTasks: number;
+    lastAccessedAt: string;
+  }>;
+  message?: string;
+  error?: string;
+}
+
+export interface GetCurrentRepoResult {
+  success: boolean;
+  repoName?: string;
+  repoPath?: string;
+  registered: boolean;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Refinement Step Types
+// ============================================================================
+
+export interface RefinementStep {
+  stepNumber: number;
+  stepName: string;
+  completed: boolean;
+  completedAt?: string;
+  summary?: string;
+  data?: Record<string, any>;
+}
+
+export interface UpdateRefinementStepInput {
+  repoName: string;
+  featureSlug: string;
+  stepNumber: number;
+  completed: boolean;
+  summary: string;
+  data?: Record<string, any>;
+}
+
+export interface UpdateRefinementStepResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  stepNumber: number;
+  completed: boolean;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Feature-Level Acceptance Criteria Types
+// ============================================================================
+
+export interface FeatureAcceptanceCriterion {
+  criterionId: string;
+  criterion: string;
+  priority: 'Must Have' | 'Should Have' | 'Could Have';
+  source: 'user' | 'generated' | 'attachment';
+  createdAt: string;
+}
+
+export interface AddFeatureAcceptanceCriteriaInput {
+  repoName: string;
+  featureSlug: string;
+  criteria: Array<{
+    criterionId: string;
+    criterion: string;
+    priority: 'Must Have' | 'Should Have' | 'Could Have';
+    source?: 'user' | 'generated' | 'attachment';
+  }>;
+}
+
+export interface AddFeatureAcceptanceCriteriaResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  criteriaAdded: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Feature-Level Test Scenario Types
+// ============================================================================
+
+export interface FeatureTestScenario {
+  scenarioId: string;
+  title: string;
+  description: string;
+  priority: 'P0' | 'P1' | 'P2' | 'P3';
+  type: 'automated' | 'manual' | 'both';
+  preconditions?: string;
+  expectedResult?: string;
+  createdAt: string;
+}
+
+export interface AddFeatureTestScenariosInput {
+  repoName: string;
+  featureSlug: string;
+  scenarios: Array<{
+    scenarioId: string;
+    title: string;
+    description: string;
+    priority: 'P0' | 'P1' | 'P2' | 'P3';
+    type?: 'automated' | 'manual' | 'both';
+    preconditions?: string;
+    expectedResult?: string;
+  }>;
+}
+
+export interface AddFeatureTestScenariosResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  scenariosAdded: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Clarification Types
+// ============================================================================
+
+export interface Clarification {
+  id: number;
+  question: string;
+  answer?: string;
+  askedAt: string;
+  answeredAt?: string;
+  askedBy: 'llm' | 'user';
+}
+
+export interface AddClarificationInput {
+  repoName: string;
+  featureSlug: string;
+  question: string;
+  answer?: string;
+  askedBy?: 'llm' | 'user';
+}
+
+export interface AddClarificationResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  clarificationId: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Attachment Analysis Types
+// ============================================================================
+
+export interface FeatureAttachment {
+  id: number;
+  attachmentName: string;
+  attachmentType: 'excel' | 'image' | 'document' | 'design';
+  filePath?: string;
+  fileUrl?: string;
+  analysisSummary: string;
+  extractedData?: Record<string, any>;
+  analyzedAt: string;
+}
+
+export interface AddAttachmentAnalysisInput {
+  repoName: string;
+  featureSlug: string;
+  attachmentName: string;
+  attachmentType: 'excel' | 'image' | 'document' | 'design';
+  filePath?: string;
+  fileUrl?: string;
+  analysisSummary: string;
+  extractedData?: Record<string, any>;
+}
+
+export interface AddAttachmentAnalysisResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  attachmentId: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Refinement Status Types
+// ============================================================================
+
+export interface GetRefinementStatusInput {
+  repoName: string;
+  featureSlug: string;
+}
+
+export interface GetRefinementStatusResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  featureName: string;
+  currentStep: string;
+  progressPercentage: number;
+  completedSteps: number;
+  totalSteps: number;
+  steps: RefinementStep[];
+  acceptanceCriteriaCount: number;
+  testScenariosCount: number;
+  clarificationsCount: number;
+  attachmentsCount: number;
+  tasksCount: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Report Generation Types
+// ============================================================================
+
+export interface GenerateRefinementReportInput {
+  repoName: string;
+  featureSlug: string;
+  format: 'markdown' | 'html' | 'json';
+  outputPath?: string;
+  includeSections?: string[];
+}
+
+export interface GenerateRefinementReportResult {
+  success: boolean;
+  repoName: string;
+  featureSlug: string;
+  format: string;
+  content: string;
+  sectionsIncluded: string[];
+  filePath?: string;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Update existing types to include repoName
+// ============================================================================
+
+// Update ReviewInput to include repoName
+export interface ReviewInputWithRepo extends ReviewInput {
+  repoName: string;
+}
+
+// Update all input types that need repoName
+export interface CreateFeatureInputWithRepo extends CreateFeatureInput {
+  repoName: string;
+  jiraTicketKey?: string;
+}
+
+export interface AddTaskInputWithRepo extends AddTaskInput {
+  repoName: string;
+}
+
+export interface TransitionTaskInputWithRepo extends TransitionTaskInput {
+  repoName: string;
+}
+
+export interface GetNextTaskInputWithRepo extends GetNextTaskInput {
+  repoName: string;
+}
+
+export interface GetNextStepInputWithRepo extends GetNextStepInput {
+  repoName: string;
+}
+
+export interface UpdateAcceptanceCriteriaInputWithRepo extends UpdateAcceptanceCriteriaInput {
+  repoName: string;
+}
+
+export interface GetTasksByStatusInputWithRepo extends GetTasksByStatusInput {
+  repoName: string;
+}
+
+export interface VerifyAllTasksCompleteInputWithRepo extends VerifyAllTasksCompleteInput {
+  repoName: string;
+}
+
+export interface UpdateTaskInputWithRepo extends UpdateTaskInput {
+  repoName: string;
+}
+
+export interface DeleteTaskInputWithRepo extends DeleteTaskInput {
+  repoName: string;
 }

@@ -159,23 +159,23 @@ export class DatabaseHandler {
   }
 
   /**
-   * Load task file by feature_slug
+   * Load task file by feature_slug and repo_name
    */
-  async loadByFeatureSlug(featureSlug: string): Promise<TaskFile> {
+  async loadByFeatureSlug(featureSlug: string, repoName: string = 'default'): Promise<TaskFile> {
     try {
       // Get feature
       const feature = this.db.prepare(`
         SELECT feature_slug, feature_name, created_at, last_modified
         FROM features
-        WHERE feature_slug = ?
-      `).get(featureSlug) as any;
+        WHERE feature_slug = ? AND repo_name = ?
+      `).get(featureSlug, repoName) as any;
 
       if (!feature) {
-        throw new Error(`Feature not found: ${featureSlug}`);
+        throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
       }
 
       // Get all tasks for this feature
-      const tasks = this.loadTasksForFeature(featureSlug);
+      const tasks = this.loadTasksForFeature(featureSlug, repoName);
 
       return {
         featureSlug: feature.feature_slug,
@@ -194,23 +194,23 @@ export class DatabaseHandler {
   /**
    * Load all tasks for a feature
    */
-  private loadTasksForFeature(featureSlug: string): Task[] {
+  private loadTasksForFeature(featureSlug: string, repoName: string = 'default'): Task[] {
     const taskRows = this.db.prepare(`
-      SELECT * FROM tasks WHERE feature_slug = ? ORDER BY order_of_execution
-    `).all(featureSlug) as any[];
+      SELECT * FROM tasks WHERE feature_slug = ? AND repo_name = ? ORDER BY order_of_execution
+    `).all(featureSlug, repoName) as any[];
 
-    return taskRows.map(row => this.mapRowToTask(featureSlug, row));
+    return taskRows.map(row => this.mapRowToTask(featureSlug, repoName, row));
   }
 
   /**
    * Map database row to Task object
    */
-  private mapRowToTask(featureSlug: string, row: any): Task {
+  private mapRowToTask(featureSlug: string, repoName: string, row: any): Task {
     // Load related data
-    const transitions = this.loadTransitions(featureSlug, row.task_id);
-    const acceptanceCriteria = this.loadAcceptanceCriteria(featureSlug, row.task_id);
-    const testScenarios = this.loadTestScenarios(featureSlug, row.task_id);
-    const stakeholderReview = this.loadStakeholderReview(featureSlug, row.task_id);
+    const transitions = this.loadTransitions(featureSlug, repoName, row.task_id);
+    const acceptanceCriteria = this.loadAcceptanceCriteria(featureSlug, repoName, row.task_id);
+    const testScenarios = this.loadTestScenarios(featureSlug, repoName, row.task_id);
+    const stakeholderReview = this.loadStakeholderReview(featureSlug, repoName, row.task_id);
 
     return {
       taskId: row.task_id,
@@ -233,12 +233,12 @@ export class DatabaseHandler {
   /**
    * Load transitions for a task
    */
-  private loadTransitions(featureSlug: string, taskId: string): Transition[] {
+  private loadTransitions(featureSlug: string, repoName: string, taskId: string): Transition[] {
     const rows = this.db.prepare(`
-      SELECT * FROM transitions 
-      WHERE feature_slug = ? AND task_id = ? 
+      SELECT * FROM transitions
+      WHERE feature_slug = ? AND repo_name = ? AND task_id = ?
       ORDER BY timestamp
-    `).all(featureSlug, taskId) as any[];
+    `).all(featureSlug, repoName, taskId) as any[];
 
     return rows.map(row => {
       const additional = row.additional_data ? JSON.parse(row.additional_data) : {};
@@ -257,11 +257,11 @@ export class DatabaseHandler {
   /**
    * Load acceptance criteria for a task
    */
-  private loadAcceptanceCriteria(featureSlug: string, taskId: string): AcceptanceCriterion[] {
+  private loadAcceptanceCriteria(featureSlug: string, repoName: string, taskId: string): AcceptanceCriterion[] {
     const rows = this.db.prepare(`
-      SELECT * FROM acceptance_criteria 
-      WHERE feature_slug = ? AND task_id = ?
-    `).all(featureSlug, taskId) as any[];
+      SELECT * FROM acceptance_criteria
+      WHERE feature_slug = ? AND repo_name = ? AND task_id = ?
+    `).all(featureSlug, repoName, taskId) as any[];
 
     return rows.map(row => ({
       id: row.criterion_id,
@@ -274,11 +274,11 @@ export class DatabaseHandler {
   /**
    * Load test scenarios for a task
    */
-  private loadTestScenarios(featureSlug: string, taskId: string): TestScenario[] {
+  private loadTestScenarios(featureSlug: string, repoName: string, taskId: string): TestScenario[] {
     const rows = this.db.prepare(`
-      SELECT * FROM test_scenarios 
-      WHERE feature_slug = ? AND task_id = ?
-    `).all(featureSlug, taskId) as any[];
+      SELECT * FROM test_scenarios
+      WHERE feature_slug = ? AND repo_name = ? AND task_id = ?
+    `).all(featureSlug, repoName, taskId) as any[];
 
     return rows.map(row => ({
       id: row.scenario_id,
@@ -292,11 +292,11 @@ export class DatabaseHandler {
   /**
    * Load stakeholder review for a task
    */
-  private loadStakeholderReview(featureSlug: string, taskId: string): StakeholderReview {
+  private loadStakeholderReview(featureSlug: string, repoName: string, taskId: string): StakeholderReview {
     const rows = this.db.prepare(`
-      SELECT * FROM stakeholder_reviews 
-      WHERE feature_slug = ? AND task_id = ?
-    `).all(featureSlug, taskId) as any[];
+      SELECT * FROM stakeholder_reviews
+      WHERE feature_slug = ? AND repo_name = ? AND task_id = ?
+    `).all(featureSlug, repoName, taskId) as any[];
 
     const review: StakeholderReview = {};
 
@@ -315,35 +315,35 @@ export class DatabaseHandler {
   /**
    * Save task file by feature_slug
    */
-  async saveByFeatureSlug(featureSlug: string, taskFile: TaskFile): Promise<void> {
+  async saveByFeatureSlug(featureSlug: string, taskFile: TaskFile, repoName: string = 'default'): Promise<void> {
     // Ensure featureSlug matches taskFile.featureSlug
     if (featureSlug !== taskFile.featureSlug) {
       throw new Error(`Feature slug mismatch: ${featureSlug} !== ${taskFile.featureSlug}`);
     }
 
-    const saveTransaction = this.db.transaction((data: TaskFile) => {
+    const saveTransaction = this.db.transaction((data: TaskFile, repo: string) => {
       const now = new Date().toISOString();
 
       // Upsert feature
       this.db.prepare(`
-        INSERT INTO features (feature_slug, feature_name, created_at, last_modified)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(feature_slug) DO UPDATE SET
+        INSERT INTO features (repo_name, feature_slug, feature_name, created_at, last_modified)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(repo_name, feature_slug) DO UPDATE SET
           feature_name = excluded.feature_name,
           last_modified = excluded.last_modified
-      `).run(data.featureSlug, data.featureName, data.createdAt || now, now);
+      `).run(repo, data.featureSlug, data.featureName, data.createdAt || now, now);
 
       // Delete existing tasks and related data (CASCADE will handle related tables)
-      this.db.prepare(`DELETE FROM tasks WHERE feature_slug = ?`).run(data.featureSlug);
+      this.db.prepare(`DELETE FROM tasks WHERE repo_name = ? AND feature_slug = ?`).run(repo, data.featureSlug);
 
       // Insert all tasks
       for (const task of data.tasks) {
-        this.saveTask(data.featureSlug, task);
+        this.saveTask(data.featureSlug, task, repo);
       }
     });
 
     try {
-      saveTransaction(taskFile);
+      saveTransaction(taskFile, repoName);
     } catch (error) {
       throw new Error(
         `Failed to save feature: ${error instanceof Error ? error.message : String(error)}`
@@ -354,15 +354,16 @@ export class DatabaseHandler {
   /**
    * Save a single task with all related data
    */
-  private saveTask(featureSlug: string, task: Task): void {
+  private saveTask(featureSlug: string, task: Task, repoName: string = 'default'): void {
     // Insert task
     this.db.prepare(`
       INSERT INTO tasks (
-        feature_slug, task_id, title, description, status, 
-        assigned_to, estimated_hours, order_of_execution, 
+        repo_name, feature_slug, task_id, title, description, status,
+        assigned_to, estimated_hours, order_of_execution,
         tags, dependencies, out_of_scope
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
+      repoName,
       featureSlug,
       task.taskId,
       task.title,
@@ -381,10 +382,11 @@ export class DatabaseHandler {
       const { from, to, approver, actor, timestamp, notes, ...additional } = transition;
       this.db.prepare(`
         INSERT INTO transitions (
-          feature_slug, task_id, from_status, to_status, 
+          repo_name, feature_slug, task_id, from_status, to_status,
           approver, actor, timestamp, notes, additional_data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
+        repoName,
         featureSlug,
         task.taskId,
         from,
@@ -401,9 +403,10 @@ export class DatabaseHandler {
     for (const criterion of task.acceptanceCriteria) {
       this.db.prepare(`
         INSERT INTO acceptance_criteria (
-          feature_slug, task_id, criterion_id, criterion, priority, verified
-        ) VALUES (?, ?, ?, ?, ?, ?)
+          repo_name, feature_slug, task_id, criterion_id, criterion, priority, verified
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
+        repoName,
         featureSlug,
         task.taskId,
         criterion.id,
@@ -418,9 +421,10 @@ export class DatabaseHandler {
       for (const scenario of task.testScenarios) {
         this.db.prepare(`
           INSERT INTO test_scenarios (
-            feature_slug, task_id, scenario_id, title, description, manual_only, priority
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            repo_name, feature_slug, task_id, scenario_id, title, description, manual_only, priority
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
+          repoName,
           featureSlug,
           task.taskId,
           scenario.id,
@@ -438,9 +442,10 @@ export class DatabaseHandler {
         const { approved, notes, ...additional } = review;
         this.db.prepare(`
           INSERT INTO stakeholder_reviews (
-            feature_slug, task_id, stakeholder, approved, notes, additional_data
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            repo_name, feature_slug, task_id, stakeholder, approved, notes, additional_data
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(
+          repoName,
           featureSlug,
           task.taskId,
           stakeholder,
@@ -455,11 +460,11 @@ export class DatabaseHandler {
   /**
    * Validate feature exists
    */
-  async validateFeatureSlug(featureSlug: string): Promise<{ valid: boolean; error?: string }> {
+  async validateFeatureSlug(featureSlug: string, repoName: string = 'default'): Promise<{ valid: boolean; error?: string }> {
     try {
       const feature = this.db.prepare(`
-        SELECT feature_slug FROM features WHERE feature_slug = ?
-      `).get(featureSlug);
+        SELECT feature_slug FROM features WHERE feature_slug = ? AND repo_name = ?
+      `).get(featureSlug, repoName);
 
       if (!feature) {
         return { valid: false, error: 'Feature does not exist' };
@@ -477,8 +482,8 @@ export class DatabaseHandler {
   /**
    * Load task file with lock (same as loadByFeatureSlug for now, SQLite handles locking)
    */
-  async loadByFeatureSlugWithLock(featureSlug: string): Promise<TaskFile> {
-    return this.loadByFeatureSlug(featureSlug);
+  async loadByFeatureSlugWithLock(featureSlug: string, repoName: string = 'default'): Promise<TaskFile> {
+    return this.loadByFeatureSlug(featureSlug, repoName);
   }
 
   /**
@@ -491,18 +496,19 @@ export class DatabaseHandler {
   /**
    * Get all feature slugs
    */
-  getAllFeatures(): Array<{ featureSlug: string; featureName: string; lastModified: string; totalTasks: number }> {
+  getAllFeatures(repoName: string = 'default'): Array<{ featureSlug: string; featureName: string; lastModified: string; totalTasks: number }> {
     const rows = this.db.prepare(`
-      SELECT 
-        f.feature_slug, 
-        f.feature_name, 
+      SELECT
+        f.feature_slug,
+        f.feature_name,
         f.last_modified,
         COUNT(t.id) as total_tasks
       FROM features f
-      LEFT JOIN tasks t ON f.feature_slug = t.feature_slug
+      LEFT JOIN tasks t ON f.feature_slug = t.feature_slug AND f.repo_name = t.repo_name
+      WHERE f.repo_name = ?
       GROUP BY f.feature_slug, f.feature_name, f.last_modified
       ORDER BY f.last_modified DESC
-    `).all() as any[];
+    `).all(repoName) as any[];
 
     return rows.map(row => ({
       featureSlug: row.feature_slug,
@@ -515,32 +521,32 @@ export class DatabaseHandler {
   /**
    * Create a new feature
    */
-  createFeature(featureSlug: string, featureName: string): void {
+  createFeature(featureSlug: string, featureName: string, repoName: string = 'default'): void {
     const now = new Date().toISOString();
-    
+
     this.db.prepare(`
-      INSERT INTO features (feature_slug, feature_name, created_at, last_modified)
-      VALUES (?, ?, ?, ?)
-    `).run(featureSlug, featureName, now, now);
+      INSERT INTO features (repo_name, feature_slug, feature_name, created_at, last_modified)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(repoName, featureSlug, featureName, now, now);
   }
 
   /**
    * Delete a feature and all its tasks
    */
-  deleteFeature(featureSlug: string): void {
-    this.db.prepare(`DELETE FROM features WHERE feature_slug = ?`).run(featureSlug);
+  deleteFeature(featureSlug: string, repoName: string = 'default'): void {
+    this.db.prepare(`DELETE FROM features WHERE feature_slug = ? AND repo_name = ?`).run(featureSlug, repoName);
   }
 
   /**
    * Add a task to a feature
    */
-  addTask(featureSlug: string, task: Partial<Task>): string {
+  addTask(featureSlug: string, task: Partial<Task>, repoName: string = 'default'): string {
     const now = new Date().toISOString();
 
     // Ensure feature exists
-    const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
+    const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ? AND repo_name = ?`).get(featureSlug, repoName);
     if (!feature) {
-      throw new Error(`Feature not found: ${featureSlug}`);
+      throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
     }
 
     const taskId = task.taskId || `T${Date.now()}`;
@@ -548,11 +554,12 @@ export class DatabaseHandler {
     // Insert task
     this.db.prepare(`
       INSERT INTO tasks (
-        feature_slug, task_id, title, description, status,
+        repo_name, feature_slug, task_id, title, description, status,
         assigned_to, estimated_hours, order_of_execution,
         tags, dependencies, out_of_scope
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
+      repoName,
       featureSlug,
       taskId,
       task.title || 'New Task',
@@ -571,10 +578,10 @@ export class DatabaseHandler {
       for (const criterion of task.acceptanceCriteria) {
         this.db.prepare(`
           INSERT INTO acceptance_criteria (
-            feature_slug, task_id, criterion_id, criterion, priority, verified
-          ) VALUES (?, ?, ?, ?, ?, ?)
+            repo_name, feature_slug, task_id, criterion_id, criterion, priority, verified
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(
-          featureSlug, taskId,
+          repoName, featureSlug, taskId,
           criterion.id, criterion.criterion, criterion.priority,
           criterion.verified ? 1 : 0
         );
@@ -586,10 +593,10 @@ export class DatabaseHandler {
       for (const scenario of task.testScenarios) {
         this.db.prepare(`
           INSERT INTO test_scenarios (
-            feature_slug, task_id, scenario_id, title, description, manual_only, priority
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            repo_name, feature_slug, task_id, scenario_id, title, description, manual_only, priority
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          featureSlug, taskId,
+          repoName, featureSlug, taskId,
           scenario.id, scenario.title, scenario.description,
           scenario.manualOnly ? 1 : 0, scenario.priority
         );
@@ -598,8 +605,8 @@ export class DatabaseHandler {
 
     // Update feature last_modified
     this.db.prepare(`
-      UPDATE features SET last_modified = ? WHERE feature_slug = ?
-    `).run(now, featureSlug);
+      UPDATE features SET last_modified = ? WHERE feature_slug = ? AND repo_name = ?
+    `).run(now, featureSlug, repoName);
 
     return taskId;
   }
@@ -607,18 +614,18 @@ export class DatabaseHandler {
   /**
    * Update specific fields of a task
    */
-  updateTask(featureSlug: string, taskId: string, updates: Partial<Task>): void {
+  updateTask(featureSlug: string, taskId: string, updates: Partial<Task>, repoName: string = 'default'): void {
     const now = new Date().toISOString();
 
     const updateTransaction = this.db.transaction(() => {
       // Verify feature exists
-      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
+      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ? AND repo_name = ?`).get(featureSlug, repoName);
       if (!feature) {
-        throw new Error(`Feature not found: ${featureSlug}`);
+        throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
       }
 
       // Verify task exists
-      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE feature_slug = ? AND task_id = ?`).get(featureSlug, taskId);
+      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE feature_slug = ? AND repo_name = ? AND task_id = ?`).get(featureSlug, repoName, taskId);
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
       }
@@ -658,27 +665,27 @@ export class DatabaseHandler {
 
       // Only execute update if there are fields to update
       if (updateFields.length > 0) {
-        updateValues.push(featureSlug, taskId);
+        updateValues.push(repoName, featureSlug, taskId);
         this.db.prepare(`
           UPDATE tasks
           SET ${updateFields.join(', ')}
-          WHERE feature_slug = ? AND task_id = ?
+          WHERE repo_name = ? AND feature_slug = ? AND task_id = ?
         `).run(...updateValues);
       }
 
       // Handle acceptance criteria - delete old and insert new
       if (updates.acceptanceCriteria !== undefined) {
         this.db.prepare(`
-          DELETE FROM acceptance_criteria WHERE feature_slug = ? AND task_id = ?
-        `).run(featureSlug, taskId);
+          DELETE FROM acceptance_criteria WHERE repo_name = ? AND feature_slug = ? AND task_id = ?
+        `).run(repoName, featureSlug, taskId);
 
         for (const criterion of updates.acceptanceCriteria) {
           this.db.prepare(`
             INSERT INTO acceptance_criteria (
-              feature_slug, task_id, criterion_id, criterion, priority, verified
-            ) VALUES (?, ?, ?, ?, ?, ?)
+              repo_name, feature_slug, task_id, criterion_id, criterion, priority, verified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
           `).run(
-            featureSlug, taskId,
+            repoName, featureSlug, taskId,
             criterion.id, criterion.criterion, criterion.priority,
             criterion.verified ? 1 : 0
           );
@@ -688,16 +695,16 @@ export class DatabaseHandler {
       // Handle test scenarios - delete old and insert new
       if (updates.testScenarios !== undefined) {
         this.db.prepare(`
-          DELETE FROM test_scenarios WHERE feature_slug = ? AND task_id = ?
-        `).run(featureSlug, taskId);
+          DELETE FROM test_scenarios WHERE repo_name = ? AND feature_slug = ? AND task_id = ?
+        `).run(repoName, featureSlug, taskId);
 
         for (const scenario of updates.testScenarios) {
           this.db.prepare(`
             INSERT INTO test_scenarios (
-              feature_slug, task_id, scenario_id, title, description, manual_only, priority
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+              repo_name, feature_slug, task_id, scenario_id, title, description, manual_only, priority
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
-            featureSlug, taskId,
+            repoName, featureSlug, taskId,
             scenario.id, scenario.title, scenario.description,
             scenario.manualOnly ? 1 : 0, scenario.priority
           );
@@ -706,8 +713,8 @@ export class DatabaseHandler {
 
       // Update feature last_modified
       this.db.prepare(`
-        UPDATE features SET last_modified = ? WHERE feature_slug = ?
-      `).run(now, featureSlug);
+        UPDATE features SET last_modified = ? WHERE feature_slug = ? AND repo_name = ?
+      `).run(now, featureSlug, repoName);
     });
 
     updateTransaction();
@@ -716,33 +723,518 @@ export class DatabaseHandler {
   /**
    * Delete a task from a feature
    */
-  deleteTask(featureSlug: string, taskId: string): void {
+  deleteTask(featureSlug: string, taskId: string, repoName: string = 'default'): void {
     const now = new Date().toISOString();
 
     const deleteTransaction = this.db.transaction(() => {
       // Verify feature exists
-      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ?`).get(featureSlug);
+      const feature = this.db.prepare(`SELECT feature_slug FROM features WHERE feature_slug = ? AND repo_name = ?`).get(featureSlug, repoName);
       if (!feature) {
-        throw new Error(`Feature not found: ${featureSlug}`);
+        throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
       }
 
       // Verify task exists before deletion
-      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE feature_slug = ? AND task_id = ?`).get(featureSlug, taskId);
+      const task = this.db.prepare(`SELECT task_id FROM tasks WHERE repo_name = ? AND feature_slug = ? AND task_id = ?`).get(repoName, featureSlug, taskId);
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
       }
 
       // Delete task (CASCADE will automatically delete related data)
       this.db.prepare(`
-        DELETE FROM tasks WHERE feature_slug = ? AND task_id = ?
-      `).run(featureSlug, taskId);
+        DELETE FROM tasks WHERE repo_name = ? AND feature_slug = ? AND task_id = ?
+      `).run(repoName, featureSlug, taskId);
 
       // Update feature last_modified
       this.db.prepare(`
-        UPDATE features SET last_modified = ? WHERE feature_slug = ?
-      `).run(now, featureSlug);
+        UPDATE features SET last_modified = ? WHERE feature_slug = ? AND repo_name = ?
+      `).run(now, featureSlug, repoName);
     });
 
     deleteTransaction();
+  }
+
+  // ============================================================================
+  // Multi-Repo Support Methods
+  // ============================================================================
+
+  /**
+   * Register a new repository
+   */
+  registerRepo(repoName: string, repoPath: string, repoUrl?: string, defaultBranch?: string, metadata?: Record<string, any>): void {
+    const now = new Date().toISOString();
+
+    this.db.prepare(`
+      INSERT INTO repos (repo_name, repo_path, repo_url, default_branch, created_at, last_accessed_at, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(repo_name) DO UPDATE SET
+        repo_path = excluded.repo_path,
+        repo_url = excluded.repo_url,
+        default_branch = excluded.default_branch,
+        metadata = excluded.metadata,
+        last_accessed_at = excluded.last_accessed_at
+    `).run(
+      repoName,
+      repoPath,
+      repoUrl || null,
+      defaultBranch || 'main',
+      now,
+      now,
+      metadata ? JSON.stringify(metadata) : null
+    );
+  }
+
+  /**
+   * Get a specific repository
+   */
+  getRepo(repoName: string): any | null {
+    const repo = this.db.prepare(`
+      SELECT * FROM repos WHERE repo_name = ?
+    `).get(repoName) as any;
+
+    if (!repo) return null;
+
+    return {
+      repoName: repo.repo_name,
+      repoPath: repo.repo_path,
+      repoUrl: repo.repo_url,
+      defaultBranch: repo.default_branch,
+      createdAt: repo.created_at,
+      lastAccessedAt: repo.last_accessed_at,
+      metadata: repo.metadata ? JSON.parse(repo.metadata) : null
+    };
+  }
+
+  /**
+   * Get all repositories with summary data
+   */
+  getAllRepos(): any[] {
+    const repos = this.db.prepare(`
+      SELECT * FROM v_repo_summary ORDER BY last_accessed_at DESC
+    `).all() as any[];
+
+    return repos.map(repo => ({
+      repoName: repo.repo_name,
+      repoPath: repo.repo_path,
+      featureCount: repo.feature_count || 0,
+      totalTasks: repo.total_tasks || 0,
+      completedTasks: repo.completed_tasks || 0,
+      lastAccessedAt: repo.last_accessed_at
+    }));
+  }
+
+  /**
+   * Get current repository based on working directory
+   */
+  getCurrentRepo(): { repoName: string; repoPath: string; registered: boolean } | null {
+    const cwd = process.cwd();
+
+    // Try to find repo by exact path match
+    const repo = this.db.prepare(`
+      SELECT repo_name, repo_path FROM repos WHERE repo_path = ?
+    `).get(cwd) as any;
+
+    if (repo) {
+      return {
+        repoName: repo.repo_name,
+        repoPath: repo.repo_path,
+        registered: true
+      };
+    }
+
+    // If not found, try to extract repo name from path
+    const pathParts = cwd.split(/[/\\]/);
+    const repoName = pathParts[pathParts.length - 1] || 'unknown';
+
+    return {
+      repoName,
+      repoPath: cwd,
+      registered: false
+    };
+  }
+
+  // ============================================================================
+  // Refinement Step Methods
+  // ============================================================================
+
+  /**
+   * Update a refinement step for a feature
+   */
+  updateRefinementStep(
+    repoName: string,
+    featureSlug: string,
+    stepNumber: number,
+    completed: boolean,
+    summary: string,
+    data?: Record<string, any>
+  ): void {
+    const now = new Date().toISOString();
+    const stepName = `step${stepNumber}`;
+
+    this.db.prepare(`
+      INSERT INTO feature_refinement_steps (
+        repo_name, feature_slug, step_number, step_name, completed, completed_at, summary, data
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(repo_name, feature_slug, step_number) DO UPDATE SET
+        completed = excluded.completed,
+        completed_at = excluded.completed_at,
+        summary = excluded.summary,
+        data = excluded.data
+    `).run(
+      repoName,
+      featureSlug,
+      stepNumber,
+      stepName,
+      completed ? 1 : 0,
+      completed ? now : null,
+      summary,
+      data ? JSON.stringify(data) : null
+    );
+  }
+
+  /**
+   * Get all refinement steps for a feature
+   */
+  getRefinementSteps(repoName: string, featureSlug: string): any[] {
+    const steps = this.db.prepare(`
+      SELECT * FROM feature_refinement_steps
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY step_number
+    `).all(repoName, featureSlug) as any[];
+
+    return steps.map(step => ({
+      stepNumber: step.step_number,
+      stepName: step.step_name,
+      completed: Boolean(step.completed),
+      completedAt: step.completed_at,
+      summary: step.summary,
+      data: step.data ? JSON.parse(step.data) : null
+    }));
+  }
+
+  /**
+   * Initialize refinement steps for a new feature (Steps 1-8)
+   */
+  initializeRefinementSteps(repoName: string, featureSlug: string): void {
+    const steps = [
+      { number: 1, name: 'step1' },
+      { number: 2, name: 'step2' },
+      { number: 3, name: 'step3' },
+      { number: 4, name: 'step4' },
+      { number: 5, name: 'step5' },
+      { number: 6, name: 'step6' },
+      { number: 7, name: 'step7' },
+      { number: 8, name: 'step8' }
+    ];
+
+    for (const step of steps) {
+      this.db.prepare(`
+        INSERT OR IGNORE INTO feature_refinement_steps (
+          repo_name, feature_slug, step_number, step_name, completed
+        ) VALUES (?, ?, ?, ?, 0)
+      `).run(repoName, featureSlug, step.number, step.name);
+    }
+  }
+
+  // ============================================================================
+  // Feature-Level Acceptance Criteria Methods
+  // ============================================================================
+
+  /**
+   * Add acceptance criteria to a feature
+   */
+  addFeatureAcceptanceCriteria(
+    repoName: string,
+    featureSlug: string,
+    criteria: Array<{ criterionId: string; criterion: string; priority: string; source?: string }>
+  ): number {
+    const now = new Date().toISOString();
+    let count = 0;
+
+    for (const ac of criteria) {
+      this.db.prepare(`
+        INSERT INTO feature_acceptance_criteria (
+          repo_name, feature_slug, criterion_id, criterion, priority, source, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(repo_name, feature_slug, criterion_id) DO UPDATE SET
+          criterion = excluded.criterion,
+          priority = excluded.priority,
+          source = excluded.source
+      `).run(
+        repoName,
+        featureSlug,
+        ac.criterionId,
+        ac.criterion,
+        ac.priority,
+        ac.source || 'generated',
+        now
+      );
+      count++;
+    }
+
+    return count;
+  }
+
+  /**
+   * Get feature-level acceptance criteria
+   */
+  getFeatureAcceptanceCriteria(repoName: string, featureSlug: string): any[] {
+    const criteria = this.db.prepare(`
+      SELECT * FROM feature_acceptance_criteria
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY created_at
+    `).all(repoName, featureSlug) as any[];
+
+    return criteria.map(ac => ({
+      criterionId: ac.criterion_id,
+      criterion: ac.criterion,
+      priority: ac.priority,
+      source: ac.source,
+      createdAt: ac.created_at
+    }));
+  }
+
+  // ============================================================================
+  // Feature-Level Test Scenario Methods
+  // ============================================================================
+
+  /**
+   * Add test scenarios to a feature
+   */
+  addFeatureTestScenarios(
+    repoName: string,
+    featureSlug: string,
+    scenarios: Array<{
+      scenarioId: string;
+      title: string;
+      description: string;
+      priority: string;
+      type?: string;
+      preconditions?: string;
+      expectedResult?: string;
+    }>
+  ): number {
+    const now = new Date().toISOString();
+    let count = 0;
+
+    for (const scenario of scenarios) {
+      this.db.prepare(`
+        INSERT INTO feature_test_scenarios (
+          repo_name, feature_slug, scenario_id, title, description, priority, type,
+          preconditions, expected_result, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(repo_name, feature_slug, scenario_id) DO UPDATE SET
+          title = excluded.title,
+          description = excluded.description,
+          priority = excluded.priority,
+          type = excluded.type,
+          preconditions = excluded.preconditions,
+          expected_result = excluded.expected_result
+      `).run(
+        repoName,
+        featureSlug,
+        scenario.scenarioId,
+        scenario.title,
+        scenario.description,
+        scenario.priority,
+        scenario.type || 'automated',
+        scenario.preconditions || null,
+        scenario.expectedResult || null,
+        now
+      );
+      count++;
+    }
+
+    return count;
+  }
+
+  /**
+   * Get feature-level test scenarios
+   */
+  getFeatureTestScenarios(repoName: string, featureSlug: string): any[] {
+    const scenarios = this.db.prepare(`
+      SELECT * FROM feature_test_scenarios
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY created_at
+    `).all(repoName, featureSlug) as any[];
+
+    return scenarios.map(ts => ({
+      scenarioId: ts.scenario_id,
+      title: ts.title,
+      description: ts.description,
+      priority: ts.priority,
+      type: ts.type,
+      preconditions: ts.preconditions,
+      expectedResult: ts.expected_result,
+      createdAt: ts.created_at
+    }));
+  }
+
+  // ============================================================================
+  // Clarification Methods
+  // ============================================================================
+
+  /**
+   * Add a clarification (Q&A) to a feature
+   */
+  addClarification(
+    repoName: string,
+    featureSlug: string,
+    question: string,
+    answer?: string,
+    askedBy: 'llm' | 'user' = 'llm'
+  ): number {
+    const now = new Date().toISOString();
+
+    const result = this.db.prepare(`
+      INSERT INTO feature_clarifications (
+        repo_name, feature_slug, question, answer, asked_at, answered_at, asked_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      repoName,
+      featureSlug,
+      question,
+      answer || null,
+      now,
+      answer ? now : null,
+      askedBy
+    );
+
+    return Number(result.lastInsertRowid);
+  }
+
+  /**
+   * Get all clarifications for a feature
+   */
+  getClarifications(repoName: string, featureSlug: string): any[] {
+    const clarifications = this.db.prepare(`
+      SELECT * FROM feature_clarifications
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY asked_at
+    `).all(repoName, featureSlug) as any[];
+
+    return clarifications.map(c => ({
+      id: c.id,
+      question: c.question,
+      answer: c.answer,
+      askedAt: c.asked_at,
+      answeredAt: c.answered_at,
+      askedBy: c.asked_by
+    }));
+  }
+
+  // ============================================================================
+  // Attachment Analysis Methods
+  // ============================================================================
+
+  /**
+   * Add attachment analysis to a feature
+   */
+  addAttachmentAnalysis(
+    repoName: string,
+    featureSlug: string,
+    attachmentName: string,
+    attachmentType: string,
+    analysisSummary: string,
+    filePath?: string,
+    fileUrl?: string,
+    extractedData?: Record<string, any>
+  ): number {
+    const now = new Date().toISOString();
+
+    const result = this.db.prepare(`
+      INSERT INTO feature_attachments (
+        repo_name, feature_slug, attachment_name, attachment_type, file_path, file_url,
+        analysis_summary, extracted_data, analyzed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      repoName,
+      featureSlug,
+      attachmentName,
+      attachmentType,
+      filePath || null,
+      fileUrl || null,
+      analysisSummary,
+      extractedData ? JSON.stringify(extractedData) : null,
+      now
+    );
+
+    return Number(result.lastInsertRowid);
+  }
+
+  /**
+   * Get all attachment analyses for a feature
+   */
+  getAttachments(repoName: string, featureSlug: string): any[] {
+    const attachments = this.db.prepare(`
+      SELECT * FROM feature_attachments
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY analyzed_at
+    `).all(repoName, featureSlug) as any[];
+
+    return attachments.map(a => ({
+      id: a.id,
+      attachmentName: a.attachment_name,
+      attachmentType: a.attachment_type,
+      filePath: a.file_path,
+      fileUrl: a.file_url,
+      analysisSummary: a.analysis_summary,
+      extractedData: a.extracted_data ? JSON.parse(a.extracted_data) : null,
+      analyzedAt: a.analyzed_at
+    }));
+  }
+
+  // ============================================================================
+  // Refinement Status Methods
+  // ============================================================================
+
+  /**
+   * Get comprehensive refinement status for a feature
+   */
+  getRefinementStatus(repoName: string, featureSlug: string): any {
+    // Get feature info
+    const feature = this.db.prepare(`
+      SELECT feature_name FROM features WHERE repo_name = ? AND feature_slug = ?
+    `).get(repoName, featureSlug) as any;
+
+    if (!feature) {
+      throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
+    }
+
+    // Get refinement steps
+    const steps = this.getRefinementSteps(repoName, featureSlug);
+    const completedSteps = steps.filter(s => s.completed).length;
+    const totalSteps = steps.length || 8;
+    const progressPercentage = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+    // Determine current step
+    const firstIncomplete = steps.find(s => !s.completed);
+    const currentStep = firstIncomplete ? firstIncomplete.stepName : 'step8';
+
+    // Get counts
+    const acceptanceCriteria = this.getFeatureAcceptanceCriteria(repoName, featureSlug);
+    const testScenarios = this.getFeatureTestScenarios(repoName, featureSlug);
+    const clarifications = this.getClarifications(repoName, featureSlug);
+    const attachments = this.getAttachments(repoName, featureSlug);
+
+    // Get task count
+    const taskCount = this.db.prepare(`
+      SELECT COUNT(*) as count FROM tasks WHERE repo_name = ? AND feature_slug = ?
+    `).get(repoName, featureSlug) as any;
+
+    return {
+      repoName,
+      featureSlug,
+      featureName: feature.feature_name,
+      currentStep,
+      progressPercentage,
+      completedSteps,
+      totalSteps,
+      steps,
+      acceptanceCriteriaCount: acceptanceCriteria.length,
+      testScenariosCount: testScenarios.length,
+      clarificationsCount: clarifications.length,
+      attachmentsCount: attachments.length,
+      tasksCount: taskCount.count
+    };
   }
 }
