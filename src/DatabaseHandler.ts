@@ -123,7 +123,48 @@ export class DatabaseHandler {
         description TEXT NOT NULL,
         saved_at TEXT NOT NULL,
         snapshot TEXT NOT NULL,
-        FOREIGN KEY(repo_name, feature_slug) REFERENCES features(repo_name, feature_slug) ON DELETE CASCADE
+        FOREIGN KEY(feature_slug) REFERENCES features(feature_slug) ON DELETE CASCADE
+      );
+
+      -- Feature Refinement Steps table
+      CREATE TABLE IF NOT EXISTS feature_refinement_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_name TEXT NOT NULL,
+        feature_slug TEXT NOT NULL,
+        step_number INTEGER NOT NULL,
+        step_name TEXT NOT NULL,
+        completed BOOLEAN DEFAULT 0,
+        completed_at TEXT,
+        summary TEXT,
+        data TEXT,
+        UNIQUE(repo_name, feature_slug, step_number),
+        FOREIGN KEY(feature_slug) REFERENCES features(feature_slug) ON DELETE CASCADE
+      );
+
+      -- Feature Attachments table
+      CREATE TABLE IF NOT EXISTS feature_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_name TEXT NOT NULL,
+        feature_slug TEXT NOT NULL,
+        attachment_name TEXT NOT NULL,
+        attachment_type TEXT NOT NULL,
+        file_path TEXT,
+        file_url TEXT,
+        analysis_summary TEXT,
+        extracted_data TEXT,
+        FOREIGN KEY(feature_slug) REFERENCES features(feature_slug) ON DELETE CASCADE
+      );
+
+      -- Feature Clarifications table
+      CREATE TABLE IF NOT EXISTS feature_clarifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_name TEXT NOT NULL,
+        feature_slug TEXT NOT NULL,
+        question TEXT NOT NULL,
+        answer TEXT,
+        asked_by TEXT DEFAULT 'llm',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(feature_slug) REFERENCES features(feature_slug) ON DELETE CASCADE
       );
 
       -- Indexes for performance

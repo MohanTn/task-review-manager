@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppState } from '../state/AppState';
 import { Task } from '../types';
 import styles from './ContentHeader.module.css';
@@ -9,7 +9,8 @@ interface ContentHeaderProps {
 }
 
 const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) => {
-  const { currentView, setCurrentView, searchQuery, setSearchQuery } = useAppState();
+  const { currentView, setCurrentView, searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
+  const [copied, setCopied] = useState(false);
 
   const stats = React.useMemo(() => {
     const total = tasks.length;
@@ -25,10 +26,31 @@ const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) =>
     return { total, done, inFlight, blocked, percent };
   }, [tasks]);
 
+  const handleCopy = async () => {
+    const text = `repoName: ${currentRepo}, featureName: ${currentFeatureSlug}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   return (
     <div className={styles.contentHeader}>
       <div className={styles.contentHeaderLeft}>
-        <div className={styles.featureHeadline}>{featureTitle}</div>
+        <div className={styles.featureTitleRow}>
+          <div className={styles.featureHeadline}>{featureTitle}</div>
+          <button
+            className={styles.copyBtn}
+            onClick={handleCopy}
+            title="Copy repo & feature name"
+            aria-label="Copy repo and feature name"
+          >
+            {copied ? '✓' : '⎘'}
+          </button>
+        </div>
         <div className={styles.statsRow}>
           <div className={styles.statItem}>
             <span className={styles.statLabel}>Total</span>

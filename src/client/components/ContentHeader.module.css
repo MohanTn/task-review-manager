@@ -14,6 +14,12 @@
   min-width: 0;
 }
 
+.featureTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .featureHeadline {
   font-size: 14px;
   font-weight: 700;
@@ -21,6 +27,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.copyBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.copyBtn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
 }
 
 .statsRow {
