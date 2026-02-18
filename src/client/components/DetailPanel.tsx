@@ -8,24 +8,32 @@ interface DetailPanelProps {
 }
 
 const DetailPanel: React.FC<DetailPanelProps> = ({ tasks, feature }) => {
+  // Feature-level acceptance criteria
+  const featureAcceptanceCriteria: AcceptanceCriterion[] = feature?.acceptanceCriteria || [];
+
   // Aggregate all acceptance criteria from tasks
-  const allAcceptanceCriteria: AcceptanceCriterion[] = tasks.flatMap(
+  const taskAcceptanceCriteria: AcceptanceCriterion[] = tasks.flatMap(
     task => task.acceptanceCriteria || []
   );
 
+  // Feature-level test scenarios
+  const featureTestScenarios: TestScenario[] = feature?.testScenarios || [];
+
   // Aggregate all test scenarios from tasks
-  const allTestScenarios: TestScenario[] = tasks.flatMap(
+  const taskTestScenarios: TestScenario[] = tasks.flatMap(
     task => task.testScenarios || []
   );
 
-  // Group AC by priority
+  // Combine and group AC by priority
+  const allAcceptanceCriteria = [...featureAcceptanceCriteria, ...taskAcceptanceCriteria];
   const acByPriority = {
     'Must Have': allAcceptanceCriteria.filter(ac => ac.priority === 'Must Have'),
     'Should Have': allAcceptanceCriteria.filter(ac => ac.priority === 'Should Have'),
     'Could Have': allAcceptanceCriteria.filter(ac => ac.priority === 'Could Have'),
   };
 
-  // Group test scenarios by priority
+  // Combine and group test scenarios by priority
+  const allTestScenarios = [...featureTestScenarios, ...taskTestScenarios];
   const tsByPriority = {
     'P0': allTestScenarios.filter(ts => ts.priority === 'P0'),
     'P1': allTestScenarios.filter(ts => ts.priority === 'P1'),

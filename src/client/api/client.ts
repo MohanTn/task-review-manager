@@ -29,6 +29,10 @@ export class APIClient {
     return FeatureAPI.getFeature(repoName, featureSlug);
   }
 
+  static async getFeatureDetails(repoName: string, featureSlug: string): Promise<any> {
+    return FeatureAPI.getFeatureDetails(repoName, featureSlug);
+  }
+
   static async createFeature(data: {
     repoName: string;
     featureSlug: string;

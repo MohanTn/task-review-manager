@@ -46,16 +46,26 @@ const MainContent: React.FC = () => {
 
   const loadFeatureTasks = async () => {
     if (!currentFeatureSlug) return;
-    
+
     setLoading(true);
     try {
-      const [summary, feature] = await Promise.all([
+      const [summary, feature, details] = await Promise.all([
         APIClient.getTasks(currentRepo, currentFeatureSlug),
-        APIClient.getFeature(currentRepo, currentFeatureSlug)
+        APIClient.getFeature(currentRepo, currentFeatureSlug),
+        APIClient.getFeatureDetails(currentRepo, currentFeatureSlug).catch(() => null)
       ]);
+
       setFeatureTitle(summary.featureTitle || currentFeatureSlug);
       setCurrentTasks(summary.tasks || []);
-      setCurrentFeature(feature);
+
+      // Merge feature with details (AC and test scenarios)
+      const featureWithDetails = {
+        ...feature,
+        acceptanceCriteria: details?.acceptanceCriteria || [],
+        testScenarios: details?.testScenarios || [],
+        description: details?.feature?.featureName || feature.description || ''
+      };
+      setCurrentFeature(featureWithDetails);
       setShowEmpty(false);
     } catch (error) {
       console.error('Failed to load tasks:', error);
