@@ -9,9 +9,10 @@ description: This workflow refines a feature ticket by gathering context, analyz
 # Output
 No file must be created for this workflow. All outputs should be returned in the response and any code changes should be committed to the appropriate feature branch in the repository.
 
-# Step 1 - Scope Determination
+# Step 1 - Scope Determination & Initial Snapshot
 - Determine scope: feature enhancement, bug fix, or refinement
 - Gather context about the requirement
+- **[NEW - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` to view any prior work on this feature (for context efficiency)
 
 # Step 2 - Attachment Analysis
 - For each attachment analyze:
@@ -60,11 +61,16 @@ No file must be created for this workflow. All outputs should be returned in the
   - Includes all necessary acceptance criteria
   - Maps to specific test scenarios
 
+# Step 6.5 - Validate Task Dependencies & Execution Order [NEW - Rec 4]
+- Call `mcp__task-review-manager__get_task_execution_plan` to analyze dependencies
+- Review optimal order, parallelizable phases, and any circular dependencies or warnings
+- If dependencies need adjustment, update tasks using `mcp__task-review-manager__update_task`
+
 # Step 7 - Stakeholder Review Cycle (Batched by Role)
 **CRITICAL: Process ALL tasks through each role in a single batch before moving to the next role. This is far more efficient than switching roles per task.**
 
 ## 7.0 - Initialize Task List
-- Call `mcp__task-review-manager__get_tasks_by_status` with status "PendingProductDirector" to get all tasks
+- **[UPDATED - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` for context-efficient overview (instead of `get_tasks_by_status`)
 - Store the task IDs for reference
 
 ## 7.1 - PRODUCT DIRECTOR REVIEW (BATCH ALL TASKS)
@@ -78,10 +84,12 @@ No file must be created for this workflow. All outputs should be returned in the
   - Identify any product concerns
   - Prepare detailed review notes
 - Conduct required research once for the batch (market analysis, competitor analysis)
-- For each task: Call `mcp__task-review-manager__add_stakeholder_review` with:
-  - decision: "approve" or "reject"
-  - notes: Detailed review for this specific task
-  - additionalFields: `marketAnalysis`, `competitorAnalysis`
+- For each task:
+  - **[NEW - Rec 7]** Call `mcp__task-review-manager__validate_review_completeness` before submitting to check all required fields are present
+  - Call `mcp__task-review-manager__add_stakeholder_review` with:
+    - decision: "approve" or "reject"
+    - notes: Detailed review for this specific task
+    - additionalFields: `marketAnalysis`, `competitorAnalysis`, **`quickSummary`** (1-2 sentence TL;DR - Rec 6)
 - All approved tasks auto-transition to "PendingArchitect"
 - Rejected tasks auto-transition to "NeedsRefinement"
 - **Progress output**: "Product Director batch complete: [N] approved, [M] rejected"
@@ -151,6 +159,7 @@ No file must be created for this workflow. All outputs should be returned in the
 - If any tasks were rejected:
   - Review the issues identified by each stakeholder
   - Update task details using `mcp__task-review-manager__update_task` to address concerns
+  - **[NEW - Rec 3]** Optionally: Use `mcp__task-review-manager__rollback_last_decision` to undo incorrect review (if needed)
   - Call `mcp__task-review-manager__transition_task_status` to move back to "PendingProductDirector"
   - Restart the review cycle from Step 7.1 for these tasks
   - Repeat until all tasks reach "ReadyForDevelopment"
@@ -160,10 +169,11 @@ No file must be created for this workflow. All outputs should be returned in the
 - Confirm all tasks created in Step 6 are now in "ReadyForDevelopment" status
 - If verification fails, report which tasks are stuck and why
 
-# Step 8 - Finalization
+# Step 8 - Finalization & Checkpoint
 - Combine all acceptance criteria into a single text block
 - Combine all test scenarios into a single text block
 - If using Jira integration: Update the Jira ticket with final AC and test scenarios
+- **[NEW - Rec 3]** Call `mcp__task-review-manager__save_workflow_checkpoint` with description "All tasks ReadyForDevelopment - ready for dev workflow"
 - Present the final AC and test scenarios to the user
 - Confirm workflow completion
 
