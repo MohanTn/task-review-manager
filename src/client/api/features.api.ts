@@ -31,6 +31,13 @@ export class FeatureAPI extends BaseClient {
   }
 
   /**
+   * Get feature details including acceptance criteria and test scenarios
+   */
+  static async getFeatureDetails(repoName: string, featureSlug: string): Promise<any> {
+    return this.request(`${this.apiBase}/features/${encodeURIComponent(featureSlug)}/details?repoName=${encodeURIComponent(repoName)}`);
+  }
+
+  /**
    * Create a new feature
    */
   static async createFeature(data: {

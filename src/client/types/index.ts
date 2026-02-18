@@ -63,6 +63,8 @@ export interface Feature {
   createdAt: string;
   tasks?: Task[];
   totalTasks?: number;
+  acceptanceCriteria?: AcceptanceCriterion[];
+  testScenarios?: TestScenario[];
 }
 
 export interface Repo {
