@@ -10,13 +10,14 @@ description: Feature development workflow with batched role processing. Develope
 No file must be created for this workflow. All outputs should be returned in the response and any code changes should be committed to the appropriate feature branch in the repository.
 
 # Step 1 - Prerequisites and Validation
-- Call `mcp__task-review-manager__get_feature` to load complete feature data
+- **[UPDATED - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` for context-efficient feature overview (instead of `get_feature`)
 - Confirm all tasks have status "ReadyForDevelopment"
 - Review the summary:
   - Feature objective and acceptance criteria (pre-approved)
   - Dependencies identified in refinement
   - Stakeholder feedback summary from all 4 reviewers
   - Priority and scope
+- **[NEW - Rec 5]** Call `mcp__task-review-manager__get_workflow_metrics` to check health score and identify any concerns before starting
 - Confirm this is ready for development
 
 # Step 2 - Stakeholder Decisions Review
@@ -32,10 +33,14 @@ No file must be created for this workflow. All outputs should be returned in the
 - Query DB schemas if applicable: tables, foreign keys, constraints
 - Validate that recommended architecture is compatible with existing codebase
 
-# Step 4 - Task Verification
-- Call `mcp__task-review-manager__get_feature` to verify all required tasks exist
+# Step 4 - Task Verification & Execution Planning
+- **[UPDATED - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` to verify all required tasks exist
 - Confirm all tasks have status "ReadyForDevelopment"
-- Review task execution order (orderOfExecution field)
+- **[NEW - Rec 4]** Call `mcp__task-review-manager__get_task_execution_plan` to:
+  - Determine optimal execution order
+  - Identify parallelizable tasks
+  - Review critical path and any warnings
+- Use the optimal order from execution plan instead of just orderOfExecution
 
 # Step 5 - Feature Branch Creation
 - Create feature branch: `git checkout -b feature/<feature_slug>/description`
@@ -63,10 +68,12 @@ No file must be created for this workflow. All outputs should be returned in the
   - Write comprehensive unit and integration tests
   - Document implementation approach
 - Once ALL tasks implemented:
-  - For each task: Call `mcp__task-review-manager__transition_task_status` to move from InProgress → InReview with metadata:
-    - `developerNotes`: Implementation approach and decisions
-    - `filesChanged`: Array of modified file paths
-    - `testFiles`: Array of test file paths
+  - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` to move ALL from InProgress → InReview in one call:
+    - `taskIds`: All implemented task IDs
+    - `fromStatus`: "InProgress"
+    - `toStatus`: "InReview"
+    - `metadata`: Shared developer notes (or leave per-task for detail)
+  - **[NEW - Rec 3]** Call `mcp__task-review-manager__save_workflow_checkpoint` with description "After developer batch - all tasks in InReview"
 - **Progress output**: "Developer batch complete: [N] tasks implemented and moved to InReview"
 - Commit all changes with message: `feature/<feature_slug>: implement all tasks`
 
@@ -84,12 +91,16 @@ No file must be created for this workflow. All outputs should be returned in the
     - Code quality standards (clean code, documentation)
   - Prepare review notes
 - Once ALL reviews completed:
-  - For APPROVED tasks: Call `mcp__task-review-manager__transition_task_status` from InReview → InQA with metadata:
-    - `codeReviewerNotes`: Review summary and approval rationale
-    - `testResultsSummary`: Test execution results
-  - For REJECTED tasks: Call `mcp__task-review-manager__transition_task_status` from InReview → NeedsChanges with metadata:
-    - `codeReviewerNotes`: Issues found and required changes
-    - `codeQualityConcerns`: Array of quality issues
+  - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` for APPROVED tasks from InReview → InQA:
+    - `taskIds`: All approved task IDs
+    - `fromStatus`: "InReview"
+    - `toStatus`: "InQA"
+    - `metadata`: Code reviewer notes
+  - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` for REJECTED tasks from InReview → NeedsChanges:
+    - `taskIds`: All rejected task IDs
+    - `fromStatus`: "InReview"
+    - `toStatus`: "NeedsChanges"
+    - `metadata`: Issues found and required changes
 - **Progress output**: "Code Reviewer batch complete: [N] approved → InQA, [M] rejected → NeedsChanges"
 
 ## 6.3 - QA BATCH (TEST ALL IMPLEMENTATIONS)
@@ -104,22 +115,26 @@ No file must be created for this workflow. All outputs should be returned in the
     - Product Director requirements (feature behavior)
     - UI/UX Expert requirements (usability, accessibility)
     - Security Officer requirements (security controls)
-  - Use `mcp__task-review-manager__update_acceptance_criteria` to mark each criterion as verified (or not)
+  - **[NEW - Rec 2]** Collect all AC updates and use `mcp__task-review-manager__batch_update_acceptance_criteria` to mark ALL verified criteria at once:
+    - Pass array of `{ taskId, criterionId, verified }` for each AC being marked
   - Prepare testing notes
 - Once ALL tests completed:
-  - For PASSED tasks: Call `mcp__task-review-manager__transition_task_status` from InQA → Done with metadata:
-    - `qaNotes`: Testing summary and validation details
-    - `testExecutionSummary`: Results of all test scenarios
-    - `acceptanceCriteriaMet`: true
-  - For FAILED tasks: Call `mcp__task-review-manager__transition_task_status` from InQA → NeedsChanges with metadata:
-    - `qaNotes`: Failed tests and issues found
-    - `bugsFound`: Array of bugs discovered
-    - `acceptanceCriteriaMet`: false
+  - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` for PASSED tasks from InQA → Done:
+    - `taskIds`: All passing task IDs
+    - `fromStatus`: "InQA"
+    - `toStatus`: "Done"
+    - `metadata`: QA notes and test execution summary
+  - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` for FAILED tasks from InQA → NeedsChanges:
+    - `taskIds`: All failing task IDs
+    - `fromStatus`: "InQA"
+    - `toStatus`: "NeedsChanges"
+    - `metadata`: Failed tests and bugs found
 - **Progress output**: "QA batch complete: [N] passed → Done, [M] failed → NeedsChanges"
 
 ## 6.4 - Handle Tasks Needing Changes (If Any)
 - Get all tasks with status "NeedsChanges"
 - If any tasks need changes:
+  - **[NEW - Rec 5]** Call `mcp__task-review-manager__get_workflow_metrics` to see if rework cycles are high (warning pattern)
   - Review feedback from code reviewer or QA
   - Address all identified issues
   - Re-enter developer phase for fixes:
@@ -130,14 +145,25 @@ No file must be created for this workflow. All outputs should be returned in the
   - Repeat cycles until all tasks reach "Done"
 - Commit fixes with message: `feature/<feature_slug>: address review feedback`
 
-## 6.5 - Iteration Management
+## 6.5 - Iteration Management & Checkpoint Intervals
 - After each batch completes:
   - Check for any tasks in "NeedsChanges" status
   - If found, process developer fixes in batch
+  - **[NEW - Rec 5]** Call `mcp__task-review-manager__get_workflow_metrics` to check health score after each batch
+  - **[NEW - Rec 3]** Call `mcp__task-review-manager__save_workflow_checkpoint` periodically:
+    - After code review batch completes: "After code review batch - ready for QA"
+    - After QA batch completes: "After QA batch - [N] done, [M] need fixes"
   - Continue batched review/QA until all tasks reach "Done"
   - This batched approach minimizes context switching and improves efficiency
 
-## 6.6 - Pull Request and Merge
+## 6.6 - Workflow Interruption & Resume
+- **[NEW - Rec 3]** If workflow is interrupted (token limit, connection loss):
+  - Call `mcp__task-review-manager__list_workflow_checkpoints` to see all saved checkpoints
+  - Call `mcp__task-review-manager__restore_workflow_checkpoint` with the most recent checkpoint ID
+  - Resume from the next logical phase (e.g., if last checkpoint was "After developer batch", resume with code review)
+- This enables long-running workflows to survive interruptions
+
+## 6.7 - Final Task Verification & PR Prep
 - Call `mcp__task-review-manager__verify_all_tasks_complete` to confirm ALL tasks have status "Done"
 - Review task completion: confirm all tasks show proper transition history
 - Create a Pull Request with comprehensive description linking to feature
@@ -146,7 +172,11 @@ No file must be created for this workflow. All outputs should be returned in the
 
 # Step 7 - Final Verification and Workflow Completion
 - Call `mcp__task-review-manager__verify_all_tasks_complete` to confirm all tasks are "Done"
-- Call `mcp__task-review-manager__get_feature` to verify complete transition history
+- **[UPDATED - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` for final context-efficient overview
+- **[NEW - Rec 5]** Call `mcp__task-review-manager__get_workflow_metrics` to get final health score:
+  - Verify healthScore is 80+ (good quality)
+  - Review rejection rates, rework cycles, and any alerts
+  - Document metrics in PR description
 - Review workflow history for each task:
   - Stakeholder review cycle: PendingProductDirector → PendingArchitect → PendingUiUxExpert → PendingSecurityOfficer → ReadyForDevelopment
   - Development cycle: ReadyForDevelopment → InProgress → InReview → InQA → Done
@@ -157,6 +187,7 @@ No file must be created for this workflow. All outputs should be returned in the
   - Implementation details and test coverage
   - Deployment readiness status
   - Files modified (consolidated from all task transitions)
+  - **[NEW]** Workflow health metrics and quality indicators
 - Confirm all acceptance criteria are marked as met
 - Complete the workflow and report summary
 

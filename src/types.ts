@@ -820,3 +820,276 @@ export interface UpdateTaskInputWithRepo extends UpdateTaskInput {
 export interface DeleteTaskInputWithRepo extends DeleteTaskInput {
   repoName: string;
 }
+
+// ============================================================================
+// Workflow Snapshot Tool Types (Recommendation 1: Context Compression)
+// ============================================================================
+
+export interface GetWorkflowSnapshotInput {
+  repoName: string;
+  featureSlug: string;
+}
+
+export interface WorkflowTaskSnapshot {
+  taskId: string;
+  title: string;
+  status: TaskStatus;
+  orderOfExecution: number;
+  currentRole?: string;
+  lastDecision?: string;
+}
+
+export interface WorkflowBlockage {
+  taskId: string;
+  status: TaskStatus;
+  reason: string;
+  waitingSince?: string;
+}
+
+export interface GetWorkflowSnapshotResult {
+  success: boolean;
+  feature: {
+    slug: string;
+    name: string;
+    totalTasks: number;
+    progress: string;
+  };
+  summary: string;
+  taskSnapshot: WorkflowTaskSnapshot[];
+  blockages: WorkflowBlockage[];
+  recommendations: string[];
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Batch Task Mutation Tool Types (Recommendation 2: Batch Mutations)
+// ============================================================================
+
+export interface BatchTransitionTasksInput {
+  repoName: string;
+  featureSlug: string;
+  taskIds: string[];
+  fromStatus: TaskStatus;
+  toStatus: TaskStatus;
+  actor: ActorType;
+  notes?: string;
+  metadata?: Partial<Transition>;
+}
+
+export interface BatchTransitionResult {
+  taskId: string;
+  success: boolean;
+  previousStatus: TaskStatus;
+  newStatus: TaskStatus;
+  error?: string;
+}
+
+export interface BatchTransitionTasksResult {
+  success: boolean;
+  results: BatchTransitionResult[];
+  successCount: number;
+  failureCount: number;
+  message?: string;
+  error?: string;
+}
+
+export interface BatchCriteriaUpdate {
+  taskId: string;
+  criterionId: string;
+  verified: boolean;
+}
+
+export interface BatchUpdateAcceptanceCriteriaInput {
+  repoName: string;
+  featureSlug: string;
+  updates: BatchCriteriaUpdate[];
+}
+
+export interface BatchCriteriaUpdateResult {
+  taskId: string;
+  criterionId: string;
+  verified: boolean;
+  success: boolean;
+  error?: string;
+}
+
+export interface BatchUpdateAcceptanceCriteriaResult {
+  success: boolean;
+  results: BatchCriteriaUpdateResult[];
+  successCount: number;
+  failureCount: number;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Recommendation 3: Workflow Checkpoints & Rollback
+// ============================================================================
+
+export interface CheckpointTaskSnapshot {
+  taskId: string;
+  status: TaskStatus;
+}
+
+export interface WorkflowCheckpoint {
+  id: number;
+  repoName: string;
+  featureSlug: string;
+  description: string;
+  savedAt: string;
+  snapshot: CheckpointTaskSnapshot[];
+}
+
+export interface SaveWorkflowCheckpointInput {
+  repoName: string;
+  featureSlug: string;
+  description: string;
+}
+
+export interface SaveWorkflowCheckpointResult {
+  success: boolean;
+  checkpointId?: number;
+  savedAt?: string;
+  taskCount?: number;
+  message?: string;
+  error?: string;
+}
+
+export interface ListWorkflowCheckpointsInput {
+  repoName: string;
+  featureSlug: string;
+}
+
+export interface ListWorkflowCheckpointsResult {
+  success: boolean;
+  checkpoints: WorkflowCheckpoint[];
+  message?: string;
+  error?: string;
+}
+
+export interface RestoreWorkflowCheckpointInput {
+  repoName: string;
+  featureSlug: string;
+  checkpointId: number;
+}
+
+export interface RestoreWorkflowCheckpointResult {
+  success: boolean;
+  checkpointId?: number;
+  restoredTasks?: number;
+  message?: string;
+  error?: string;
+}
+
+export interface RollbackLastDecisionInput {
+  repoName: string;
+  featureSlug: string;
+  taskId: string;
+}
+
+export interface RollbackLastDecisionResult {
+  success: boolean;
+  taskId?: string;
+  rolledBackFrom?: TaskStatus;
+  rolledBackTo?: TaskStatus;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Recommendation 4: Smart Task Dependency & Ordering
+// ============================================================================
+
+export interface GetTaskExecutionPlanInput {
+  repoName: string;
+  featureSlug: string;
+}
+
+export interface GetTaskExecutionPlanResult {
+  success: boolean;
+  optimalOrder: string[];
+  parallelizable: Record<string, string[]>;
+  criticalPath: string[];
+  warnings: string[];
+  totalDeps?: number;
+  hasCircularDeps?: boolean;
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Recommendation 5: Quality Metrics & Workflow Health
+// ============================================================================
+
+export interface WorkflowAlert {
+  level: 'error' | 'warning' | 'info';
+  msg: string;
+}
+
+export interface GetWorkflowMetricsInput {
+  repoName: string;
+  featureSlug: string;
+}
+
+export interface GetWorkflowMetricsResult {
+  success: boolean;
+  healthScore: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  avgTimeByPhase?: Record<string, string>;
+  rejectionRate?: Record<string, number>;
+  reworkCycles?: number;
+  longestWaitingTask?: { taskId: string; status: TaskStatus; duration: string };
+  alerts: WorkflowAlert[];
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Recommendation 7: Role-Specific Review Completeness Validation
+// ============================================================================
+
+export interface ValidateReviewCompletenessInput {
+  repoName: string;
+  featureSlug: string;
+  taskId: string;
+  stakeholder: StakeholderRole;
+}
+
+export interface ValidateReviewCompletenessResult {
+  success: boolean;
+  isComplete: boolean;
+  missingFields: string[];
+  warnings: string[];
+  message?: string;
+  error?: string;
+}
+
+// ============================================================================
+// Recommendation 8: Similar Task Reference
+// ============================================================================
+
+export interface SimilarTask {
+  featureSlug: string;
+  taskId: string;
+  title: string;
+  status: TaskStatus;
+  similarity: number;
+  sharedTags?: string[];
+}
+
+export interface GetSimilarTasksInput {
+  repoName: string;
+  featureSlug: string;
+  taskId: string;
+  limit?: number;
+}
+
+export interface GetSimilarTasksResult {
+  success: boolean;
+  referenceTask?: { taskId: string; title: string; tags?: string[] };
+  similarTasks: SimilarTask[];
+  message?: string;
+  error?: string;
+}

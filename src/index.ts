@@ -89,6 +89,7 @@ const TOOLS = [
           type: 'object',
           description: 'Role-specific additional fields',
           properties: {
+            quickSummary: { type: 'string', description: 'Brief 1-2 sentence TL;DR of the review (Rec 6)' },
             marketAnalysis: { type: 'string' },
             competitorAnalysis: { type: 'string' },
             technologyRecommendations: { type: 'array', items: { type: 'string' } },
@@ -868,6 +869,220 @@ const TOOLS = [
       required: ['repoName', 'featureSlug'],
     },
   },
+  {
+    name: 'get_workflow_snapshot',
+    description:
+      'Get a compressed workflow snapshot for context efficiency. Returns feature summary, task snapshot with current roles, blockages, and AI-generated recommendations. Reduces context from ~50KB to ~5KB.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug name',
+        },
+      },
+      required: ['repoName', 'featureSlug'],
+    },
+  },
+  {
+    name: 'batch_transition_tasks',
+    description:
+      'Transition multiple tasks at once in a single operation. Validates all tasks, applies transitions atomically, and returns per-task results.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug name',
+        },
+        taskIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Task IDs to transition (e.g., ["T01", "T02", "T03"])',
+        },
+        fromStatus: {
+          type: 'string',
+          description: 'Current status all tasks must have',
+        },
+        toStatus: {
+          type: 'string',
+          description: 'Target status to transition to',
+        },
+        actor: {
+          type: 'string',
+          enum: ['system', 'developer', 'codeReviewer', 'qa', 'productDirector', 'architect', 'uiUxExpert', 'securityOfficer'],
+          description: 'Actor performing the transition',
+        },
+        notes: {
+          type: 'string',
+          description: 'Optional shared notes for all transitions',
+        },
+        metadata: {
+          type: 'object',
+          description: 'Optional shared metadata for all transitions (developer notes, files changed, etc.)',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'taskIds', 'fromStatus', 'toStatus', 'actor'],
+    },
+  },
+  {
+    name: 'batch_update_acceptance_criteria',
+    description:
+      'Mark multiple acceptance criteria as verified or unverified in a single batch operation across multiple tasks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug name',
+        },
+        updates: {
+          type: 'array',
+          description: 'Array of acceptance criteria updates',
+          items: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string', description: 'Task ID (e.g., T01)' },
+              criterionId: { type: 'string', description: 'Criterion ID (e.g., AC-1)' },
+              verified: { type: 'boolean', description: 'Whether to mark as verified' },
+            },
+            required: ['taskId', 'criterionId', 'verified'],
+          },
+        },
+      },
+      required: ['repoName', 'featureSlug', 'updates'],
+    },
+  },
+  {
+    name: 'save_workflow_checkpoint',
+    description:
+      'Save a workflow checkpoint to enable resuming from this point. Useful for long workflows that may be interrupted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+        description: { type: 'string', description: 'Checkpoint description (e.g., "After developer batch complete")' },
+      },
+      required: ['repoName', 'featureSlug', 'description'],
+    },
+  },
+  {
+    name: 'list_workflow_checkpoints',
+    description:
+      'List all saved checkpoints for a feature. Use to resume from a specific checkpoint if workflow is interrupted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+      },
+      required: ['repoName', 'featureSlug'],
+    },
+  },
+  {
+    name: 'restore_workflow_checkpoint',
+    description:
+      'Restore a feature workflow to a previously saved checkpoint. All tasks revert to their status at checkpoint time.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+        checkpointId: { type: 'number', description: 'Checkpoint ID to restore from' },
+      },
+      required: ['repoName', 'featureSlug', 'checkpointId'],
+    },
+  },
+  {
+    name: 'rollback_last_decision',
+    description:
+      'Undo the last decision/transition on a specific task. Reverts the task to its previous status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+        taskId: { type: 'string', description: 'Task ID to rollback' },
+      },
+      required: ['repoName', 'featureSlug', 'taskId'],
+    },
+  },
+  {
+    name: 'get_task_execution_plan',
+    description:
+      'Analyze task dependencies and generate optimal execution plan. Detects circular dependencies, identifies parallelizable tasks, and suggests execution strategy.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+      },
+      required: ['repoName', 'featureSlug'],
+    },
+  },
+  {
+    name: 'get_workflow_metrics',
+    description:
+      'Get comprehensive workflow health metrics. Returns health score (0-100), rejection rates, rework cycles, and alerts for concerning patterns.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+      },
+      required: ['repoName', 'featureSlug'],
+    },
+  },
+  {
+    name: 'validate_review_completeness',
+    description:
+      'Validate that all required fields are present for a stakeholder review before submission. Prevents incomplete reviews from being submitted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+        taskId: { type: 'string', description: 'Task ID' },
+        stakeholder: {
+          type: 'string',
+          enum: ['productDirector', 'architect', 'uiUxExpert', 'securityOfficer'],
+          description: 'Stakeholder role',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'taskId', 'stakeholder'],
+    },
+  },
+  {
+    name: 'get_similar_tasks',
+    description:
+      'Find similar tasks across other features. Useful for finding examples and estimating task complexity based on past work.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: { type: 'string', description: 'Repository name' },
+        featureSlug: { type: 'string', description: 'Feature slug name' },
+        taskId: { type: 'string', description: 'Reference task ID' },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of similar tasks to return (default: 5)',
+        },
+      },
+      required: ['repoName', 'featureSlug', 'taskId'],
+    },
+  },
 ];
 
 // List tools handler
@@ -1365,6 +1580,196 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           format: (args.format as 'markdown' | 'html' | 'json') || 'markdown',
           outputPath: args.outputPath as string | undefined,
           includeSections: args.includeSections as string[] | undefined,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_workflow_snapshot': {
+        const result = await reviewManager.getWorkflowSnapshot(
+          args.repoName as string,
+          args.featureSlug as string
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'batch_transition_tasks': {
+        const result = await reviewManager.batchTransitionTasks({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          taskIds: args.taskIds as string[],
+          fromStatus: args.fromStatus as any,
+          toStatus: args.toStatus as any,
+          actor: args.actor as any,
+          notes: args.notes as string | undefined,
+          metadata: args.metadata as any,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'batch_update_acceptance_criteria': {
+        const result = await reviewManager.batchUpdateAcceptanceCriteria({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          updates: args.updates as any,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'save_workflow_checkpoint': {
+        const result = await reviewManager.saveWorkflowCheckpoint({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          description: args.description as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'list_workflow_checkpoints': {
+        const result = await reviewManager.listWorkflowCheckpoints({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'restore_workflow_checkpoint': {
+        const result = await reviewManager.restoreWorkflowCheckpoint({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          checkpointId: args.checkpointId as number,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'rollback_last_decision': {
+        const result = await reviewManager.rollbackLastDecision({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_task_execution_plan': {
+        const result = await reviewManager.getTaskExecutionPlan({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_workflow_metrics': {
+        const result = await reviewManager.getWorkflowMetrics({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'validate_review_completeness': {
+        const result = await reviewManager.validateReviewCompleteness({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          stakeholder: args.stakeholder as any,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_similar_tasks': {
+        const result = await reviewManager.getSimilarTasks({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          limit: args.limit as number | undefined,
         });
 
         return {

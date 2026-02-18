@@ -115,6 +115,17 @@ export class DatabaseHandler {
         FOREIGN KEY(feature_slug, task_id) REFERENCES tasks(feature_slug, task_id) ON DELETE CASCADE
       );
 
+      -- Workflow Checkpoints table (Recommendation 3)
+      CREATE TABLE IF NOT EXISTS workflow_checkpoints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_name TEXT NOT NULL,
+        feature_slug TEXT NOT NULL,
+        description TEXT NOT NULL,
+        saved_at TEXT NOT NULL,
+        snapshot TEXT NOT NULL,
+        FOREIGN KEY(repo_name, feature_slug) REFERENCES features(repo_name, feature_slug) ON DELETE CASCADE
+      );
+
       -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_tasks_feature ON tasks(feature_slug);
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -122,6 +133,7 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_acceptance_criteria_task ON acceptance_criteria(feature_slug, task_id);
       CREATE INDEX IF NOT EXISTS idx_test_scenarios_task ON test_scenarios(feature_slug, task_id);
       CREATE INDEX IF NOT EXISTS idx_stakeholder_reviews_task ON stakeholder_reviews(feature_slug, task_id);
+      CREATE INDEX IF NOT EXISTS idx_checkpoints_feature ON workflow_checkpoints(repo_name, feature_slug);
     `);
   }
 
@@ -603,6 +615,64 @@ export class DatabaseHandler {
    */
   async loadByFeatureSlugWithLock(featureSlug: string, repoName: string = 'default'): Promise<TaskFile> {
     return this.loadByFeatureSlug(featureSlug, repoName);
+  }
+
+  /**
+   * Save a workflow checkpoint (Recommendation 3)
+   */
+  saveCheckpoint(repoName: string, featureSlug: string, description: string, tasks: any[]): number {
+    const snapshot = JSON.stringify(tasks.map(t => ({ taskId: t.taskId, status: t.status })));
+    const now = new Date().toISOString();
+
+    const result = this.db.prepare(`
+      INSERT INTO workflow_checkpoints (repo_name, feature_slug, description, saved_at, snapshot)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(repoName, featureSlug, description, now, snapshot);
+
+    return result.lastInsertRowid as number;
+  }
+
+  /**
+   * List all checkpoints for a feature (Recommendation 3)
+   */
+  listCheckpoints(repoName: string, featureSlug: string): any[] {
+    const rows = this.db.prepare(`
+      SELECT id, repo_name, feature_slug, description, saved_at, snapshot
+      FROM workflow_checkpoints
+      WHERE repo_name = ? AND feature_slug = ?
+      ORDER BY saved_at DESC
+    `).all(repoName, featureSlug) as any[];
+
+    return rows.map(row => ({
+      id: row.id,
+      repoName: row.repo_name,
+      featureSlug: row.feature_slug,
+      description: row.description,
+      savedAt: row.saved_at,
+      snapshot: JSON.parse(row.snapshot)
+    }));
+  }
+
+  /**
+   * Get a specific checkpoint (Recommendation 3)
+   */
+  getCheckpoint(repoName: string, featureSlug: string, checkpointId: number): any {
+    const row = this.db.prepare(`
+      SELECT id, repo_name, feature_slug, description, saved_at, snapshot
+      FROM workflow_checkpoints
+      WHERE repo_name = ? AND feature_slug = ? AND id = ?
+    `).get(repoName, featureSlug, checkpointId) as any;
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      repoName: row.repo_name,
+      featureSlug: row.feature_slug,
+      description: row.description,
+      savedAt: row.saved_at,
+      snapshot: JSON.parse(row.snapshot)
+    };
   }
 
   /**
