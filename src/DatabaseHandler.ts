@@ -167,6 +167,18 @@ export class DatabaseHandler {
         FOREIGN KEY(feature_slug) REFERENCES features(feature_slug) ON DELETE CASCADE
       );
 
+      -- Reviewer Presence table (T03: Presence Tracking)
+      CREATE TABLE IF NOT EXISTS reviewer_presence (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reviewer_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'online',
+        current_feature TEXT,
+        started_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(reviewer_id)
+      );
+
       -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_tasks_feature ON tasks(feature_slug);
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -175,6 +187,9 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_test_scenarios_task ON test_scenarios(feature_slug, task_id);
       CREATE INDEX IF NOT EXISTS idx_stakeholder_reviews_task ON stakeholder_reviews(feature_slug, task_id);
       CREATE INDEX IF NOT EXISTS idx_checkpoints_feature ON workflow_checkpoints(repo_name, feature_slug);
+      CREATE INDEX IF NOT EXISTS idx_presence_reviewer ON reviewer_presence(reviewer_id);
+      CREATE INDEX IF NOT EXISTS idx_presence_expiry ON reviewer_presence(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_presence_status ON reviewer_presence(status);
     `);
   }
 
@@ -1469,5 +1484,105 @@ export class DatabaseHandler {
       attachmentsCount: attachments.length,
       tasksCount: taskCount.count
     };
+  }
+
+  // ============================================================================
+  // Presence Tracking Methods (T03)
+  // ============================================================================
+
+  /**
+   * Record or update reviewer presence
+   * @param reviewerId Unique identifier for the reviewer
+   * @param status Presence status (online, idle, offline)
+   * @param currentFeature Current feature/task being reviewed
+   * @param ttlMinutes Time-to-live in minutes (default 30)
+   */
+  recordPresence(reviewerId: string, status: string = 'online', currentFeature?: string, ttlMinutes: number = 30): void {
+    const now = Math.floor(Date.now() / 1000); // seconds since epoch
+    const expiresAt = now + (ttlMinutes * 60);
+
+    this.db.prepare(`
+      INSERT INTO reviewer_presence (reviewer_id, status, current_feature, started_at, expires_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(reviewer_id) DO UPDATE SET
+        status = excluded.status,
+        current_feature = excluded.current_feature,
+        started_at = excluded.started_at,
+        expires_at = excluded.expires_at
+    `).run(
+      reviewerId,
+      status,
+      currentFeature || null,
+      now,
+      expiresAt,
+      new Date().toISOString()
+    );
+  }
+
+  /**
+   * Get active presence records
+   */
+  getActivePresence(): any[] {
+    const now = Math.floor(Date.now() / 1000);
+
+    return this.db.prepare(`
+      SELECT reviewer_id, status, current_feature, started_at, expires_at
+      FROM reviewer_presence
+      WHERE expires_at > ?
+      ORDER BY started_at DESC
+    `).all(now) as any[];
+  }
+
+  /**
+   * Mark reviewer as offline
+   */
+  markOffline(reviewerId: string): void {
+    this.db.prepare(`
+      UPDATE reviewer_presence
+      SET status = 'offline'
+      WHERE reviewer_id = ?
+    `).run(reviewerId);
+  }
+
+  /**
+   * Remove presence record
+   */
+  removePresence(reviewerId: string): void {
+    this.db.prepare(`
+      DELETE FROM reviewer_presence
+      WHERE reviewer_id = ?
+    `).run(reviewerId);
+  }
+
+  /**
+   * Clean up expired presence records (TTL-based cleanup)
+   * Called periodically to remove stale presence data
+   */
+  cleanupExpiredPresence(): number {
+    const now = Math.floor(Date.now() / 1000);
+
+    const result = this.db.prepare(`
+      DELETE FROM reviewer_presence
+      WHERE expires_at < ?
+    `).run(now);
+
+    return Number(result.changes);
+  }
+
+  /**
+   * Schedule automatic cleanup of expired presence records
+   * @param intervalMinutes How often to run cleanup (default 5 minutes)
+   */
+  schedulePresenceCleanup(intervalMinutes: number = 5): NodeJS.Timeout {
+    return setInterval(() => {
+      try {
+        const removed = this.cleanupExpiredPresence();
+        if (removed > 0) {
+          console.error(`[Presence Cleanup] Removed ${removed} expired records`);
+        }
+      } catch (err) {
+        console.error(`[Presence Cleanup] Error: ${err}`);
+      }
+    }, intervalMinutes * 60 * 1000);
   }
 }
