@@ -1,10 +1,13 @@
 /**
  * Dashboard Server - Web interface for viewing task progress in real-time
+ * Includes WebSocket server for real-time updates (T01)
  */
 import express from 'express';
 import { TaskReviewManager } from './TaskReviewManager.js';
+import { wsManager } from './websocket.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
 import { createRepoRoutes } from './dashboard/routes/repo.routes.js';
 import { createFeatureRoutes } from './dashboard/routes/feature.routes.js';
 import { createTaskRoutes } from './dashboard/routes/task.routes.js';
@@ -27,7 +30,7 @@ export function startDashboard(port: number = 5111) {
 
   // Middleware
   app.use(express.json());
-  
+
   // Serve static files from Vite build output
   app.use(express.static(path.join(__dirname, 'client')));
 
@@ -46,17 +49,32 @@ export function startDashboard(port: number = 5111) {
 
   // Health check
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      websocket: 'enabled',
+      connections: wsManager.getConnectionCount(),
+    });
   });
 
-  // Start server
-  const server = app.listen(PORT, () => {
+  // Create HTTP server to support both Express and WebSocket
+  const httpServer = createServer(app);
+
+  // Initialize WebSocket server (T01)
+  wsManager.initialize(httpServer);
+
+  // Note: Task status change events will be broadcast via WebSocket
+  // when implemented in TaskReviewManager (T04)
+
+  // Start HTTP server
+  httpServer.listen(PORT, () => {
     console.error(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
 ║   Task Review Manager Dashboard                                ║
 ║                                                                ║
 ║   🚀 Server running on http://localhost:${PORT}                   ║
+║   🔌 WebSocket server on ws://localhost:${PORT}                   ║
 ║                                                                ║
 ║   API Endpoints:                                               ║
 ║   • GET /api/tasks?featureSlug=<slug>                          ║
@@ -64,12 +82,18 @@ export function startDashboard(port: number = 5111) {
 ║   • GET /api/tasks/by-status?featureSlug=<slug>&status=<...>   ║
 ║   • GET /api/verify-complete?featureSlug=<slug>                ║
 ║                                                                ║
+║   WebSocket Events:                                            ║
+║   • connection: Welcome message with connectionId              ║
+║   • presence-update: User presence tracking                    ║
+║   • task-status-changed: Real-time task updates                ║
+║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
     `);
   });
 
-  // Expose server on app for test cleanup
-  (app as any)._server = server;
+  // Expose servers on app for test cleanup
+  (app as any)._server = httpServer;
+  (app as any)._wsManager = wsManager;
 
   return app;
 }
