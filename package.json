@@ -8,7 +8,7 @@
     "task-review-manager-mcp": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && node build.js && npm run build:client",
+    "build": "tsc && npm run build:client",
     "build:client": "vite build",
     "dev": "tsc --watch",
     "dev:client": "vite",
