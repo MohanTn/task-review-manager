@@ -24,7 +24,22 @@
       "Bash(git -C /home/mohantn/REPO/task-review-manager diff HEAD --name-only)",
       "Bash(git -C /home/mohantn/REPO/task-review-manager status --short)",
       "Bash(git -C /home/mohantn/REPO/task-review-manager add src/public/index.html src/__tests__/all-tools.test.ts src/__tests__/dashboard-api.test.ts tsconfig.json)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Bash(__NEW_LINE_f1a8e5e83a686a85__ echo \"=== Scripts Directory ===\")",
+      "Bash(__NEW_LINE_c91ac27170f14cb7__ echo \"=== Home Directory Backups ===\")",
+      "Bash(ls:*)",
+      "Bash(__NEW_LINE_8d6f88a0efd43ac4__ echo \"=== Project Root \\(Before vs After\\) ===\")",
+      "mcp__task-review-manager__get_current_repo",
+      "mcp__task-review-manager__register_repo",
+      "mcp__task-review-manager__list_features",
+      "mcp__task-review-manager__create_feature",
+      "mcp__task-review-manager__add_task",
+      "mcp__task-review-manager__get_task_execution_plan",
+      "mcp__task-review-manager__add_stakeholder_review",
+      "mcp__task-review-manager__get_tasks_by_status",
+      "mcp__task-review-manager__save_workflow_checkpoint",
+      "mcp__task-review-manager__get_workflow_snapshot",
+      "mcp__task-review-manager__get_workflow_metrics"
     ]
   }
 }
