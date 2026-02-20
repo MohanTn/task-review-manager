@@ -5,6 +5,8 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs-extra';
 import { TaskFile, Task, Transition, AcceptanceCriterion, TestScenario, StakeholderReview } from './types.js';
+import { ROLE_SYSTEM_PROMPTS, RolePromptConfig } from './rolePrompts.js';
+import { PipelineRole } from './types.js';
 
 export class DatabaseHandler {
   private db: Database.Database;
@@ -27,6 +29,7 @@ export class DatabaseHandler {
     this.initializeTables();
     this.runMigrations();
     this.migrateOldRoles();
+    this.seedRolePrompts();
   }
 
   /**
@@ -190,7 +193,181 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_presence_reviewer ON reviewer_presence(reviewer_id);
       CREATE INDEX IF NOT EXISTS idx_presence_expiry ON reviewer_presence(expires_at);
       CREATE INDEX IF NOT EXISTS idx_presence_status ON reviewer_presence(status);
+
+      -- Role Prompts table
+      CREATE TABLE IF NOT EXISTS role_prompts (
+        role_id TEXT PRIMARY KEY,
+        system_prompt TEXT NOT NULL,
+        focus_areas TEXT NOT NULL DEFAULT '[]',
+        research_instructions TEXT NOT NULL DEFAULT '',
+        required_output_fields TEXT NOT NULL DEFAULT '[]',
+        phase TEXT NOT NULL DEFAULT 'review',
+        is_custom INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
     `);
+  }
+
+  /**
+   * Seed default role prompts from ROLE_SYSTEM_PROMPTS if the table is empty.
+   * Idempotent — only runs when the role_prompts table has no rows.
+   */
+  private seedRolePrompts(): void {
+    const count = (this.db.prepare('SELECT COUNT(*) as cnt FROM role_prompts').get() as { cnt: number }).cnt;
+    if (count > 0) return;
+
+    const insert = this.db.prepare(`
+      INSERT INTO role_prompts (role_id, system_prompt, focus_areas, research_instructions, required_output_fields, phase, is_custom, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+    `);
+
+    const seedAll = this.db.transaction(() => {
+      for (const [roleId, config] of Object.entries(ROLE_SYSTEM_PROMPTS)) {
+        insert.run(
+          roleId,
+          config.systemPrompt,
+          JSON.stringify(config.focusAreas),
+          config.researchInstructions,
+          JSON.stringify(config.requiredOutputFields),
+          config.phase,
+          new Date().toISOString()
+        );
+      }
+    });
+
+    seedAll();
+  }
+
+  /**
+   * Retrieve a single role prompt config from the database.
+   * Falls back to static default if no row found.
+   */
+  getRolePrompt(roleId: PipelineRole): RolePromptConfig {
+    const row = this.db.prepare(
+      'SELECT * FROM role_prompts WHERE role_id = ?'
+    ).get(roleId) as {
+      role_id: string;
+      system_prompt: string;
+      focus_areas: string;
+      research_instructions: string;
+      required_output_fields: string;
+      phase: string;
+      is_custom: number;
+      updated_at: string;
+    } | undefined;
+
+    if (!row) {
+      // Fallback to static default
+      return ROLE_SYSTEM_PROMPTS[roleId];
+    }
+
+    return {
+      systemPrompt: row.system_prompt,
+      focusAreas: JSON.parse(row.focus_areas),
+      researchInstructions: row.research_instructions,
+      requiredOutputFields: JSON.parse(row.required_output_fields),
+      phase: row.phase as 'review' | 'execution',
+    };
+  }
+
+  /**
+   * Retrieve all role prompt configs from the database.
+   */
+  getAllRolePrompts(): Array<RolePromptConfig & { roleId: string; isCustom: boolean; updatedAt: string }> {
+    const rows = this.db.prepare('SELECT * FROM role_prompts ORDER BY role_id').all() as Array<{
+      role_id: string;
+      system_prompt: string;
+      focus_areas: string;
+      research_instructions: string;
+      required_output_fields: string;
+      phase: string;
+      is_custom: number;
+      updated_at: string;
+    }>;
+
+    return rows.map(row => ({
+      roleId: row.role_id,
+      systemPrompt: row.system_prompt,
+      focusAreas: JSON.parse(row.focus_areas),
+      researchInstructions: row.research_instructions,
+      requiredOutputFields: JSON.parse(row.required_output_fields),
+      phase: row.phase as 'review' | 'execution',
+      isCustom: row.is_custom === 1,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  /**
+   * Update a role prompt config. Marks is_custom = 1.
+   */
+  updateRolePrompt(
+    roleId: PipelineRole,
+    update: Partial<Pick<RolePromptConfig, 'systemPrompt' | 'focusAreas' | 'researchInstructions' | 'requiredOutputFields'>>
+  ): void {
+    // Ensure the row exists first (may not if DB was freshly created with just seeds)
+    const existing = this.db.prepare('SELECT role_id FROM role_prompts WHERE role_id = ?').get(roleId);
+    if (!existing) {
+      // Insert default first, then update
+      const defaults = ROLE_SYSTEM_PROMPTS[roleId];
+      this.db.prepare(`
+        INSERT INTO role_prompts (role_id, system_prompt, focus_areas, research_instructions, required_output_fields, phase, is_custom, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+      `).run(
+        roleId,
+        defaults.systemPrompt,
+        JSON.stringify(defaults.focusAreas),
+        defaults.researchInstructions,
+        JSON.stringify(defaults.requiredOutputFields),
+        defaults.phase,
+        new Date().toISOString()
+      );
+    }
+
+    const current = this.getRolePrompt(roleId);
+    this.db.prepare(`
+      UPDATE role_prompts
+      SET system_prompt = ?,
+          focus_areas = ?,
+          research_instructions = ?,
+          required_output_fields = ?,
+          is_custom = 1,
+          updated_at = ?
+      WHERE role_id = ?
+    `).run(
+      update.systemPrompt ?? current.systemPrompt,
+      JSON.stringify(update.focusAreas ?? current.focusAreas),
+      update.researchInstructions ?? current.researchInstructions,
+      JSON.stringify(update.requiredOutputFields ?? current.requiredOutputFields),
+      new Date().toISOString(),
+      roleId
+    );
+  }
+
+  /**
+   * Reset a role prompt to its static default. Sets is_custom = 0.
+   */
+  resetRolePrompt(roleId: PipelineRole): RolePromptConfig {
+    const defaults = ROLE_SYSTEM_PROMPTS[roleId];
+    this.db.prepare(`
+      UPDATE role_prompts
+      SET system_prompt = ?,
+          focus_areas = ?,
+          research_instructions = ?,
+          required_output_fields = ?,
+          phase = ?,
+          is_custom = 0,
+          updated_at = ?
+      WHERE role_id = ?
+    `).run(
+      defaults.systemPrompt,
+      JSON.stringify(defaults.focusAreas),
+      defaults.researchInstructions,
+      JSON.stringify(defaults.requiredOutputFields),
+      defaults.phase,
+      new Date().toISOString(),
+      roleId
+    );
+    return defaults;
   }
 
   /**
