@@ -81,7 +81,7 @@ import {
 } from './types.js';
 import { DatabaseHandler } from './DatabaseHandler.js';
 import { WorkflowValidator } from './WorkflowValidator.js';
-import { ROLE_SYSTEM_PROMPTS } from './rolePrompts.js';
+import { RolePromptConfig } from './rolePrompts.js';
 
 export class TaskReviewManager {
   private dbHandler: DatabaseHandler;
@@ -425,7 +425,8 @@ export class TaskReviewManager {
         };
       }
 
-      const roleConfig = ROLE_SYSTEM_PROMPTS[nextRole];
+      // T03: Read role config from DB (allows user customization); falls back to static default
+      const roleConfig = this.dbHandler.getRolePrompt(nextRole);
 
       // Determine transitions based on current status
       const { transitionOnSuccess, transitionOnFailure, allowedDecisions } =
@@ -2307,5 +2308,32 @@ export class TaskReviewManager {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Role Prompt Settings
+  // ─────────────────────────────────────────────────────────────────────
+
+  /** Return all role prompt configs from the database. */
+  getAllRolePrompts(): Array<RolePromptConfig & { roleId: string; isCustom: boolean; updatedAt: string }> {
+    return this.dbHandler.getAllRolePrompts();
+  }
+
+  /** Return a single role prompt config from the database (falls back to static default). */
+  getRolePrompt(roleId: PipelineRole): RolePromptConfig {
+    return this.dbHandler.getRolePrompt(roleId);
+  }
+
+  /** Persist updated fields for a role prompt and mark it as custom. */
+  updateRolePrompt(
+    roleId: PipelineRole,
+    update: Partial<Pick<RolePromptConfig, 'systemPrompt' | 'focusAreas' | 'researchInstructions' | 'requiredOutputFields'>>
+  ): void {
+    this.dbHandler.updateRolePrompt(roleId, update);
+  }
+
+  /** Reset a role prompt to its built-in static default. */
+  resetRolePrompt(roleId: PipelineRole): RolePromptConfig {
+    return this.dbHandler.resetRolePrompt(roleId);
   }
 }

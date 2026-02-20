@@ -1,17 +1,8 @@
-import { TaskStatus } from '../types';
+import { getFilesChanged } from './transition-utils';
+import { getBadgeClass, formatStatus } from './badge-utils';
 
-export function formatStatus(status: TaskStatus | string): string {
-  if (!status) return '';
-  return status.replace(/([A-Z])/g, ' $1').trim();
-}
-
-export function getBadgeClass(status: TaskStatus | string): string {
-  if (status === 'Done') return 'badge-done';
-  if (['InProgress', 'InReview', 'InQA'].includes(status)) return 'badge-active';
-  if (['NeedsChanges', 'NeedsRefinement'].includes(status)) return 'badge-blocked';
-  if (status && status.startsWith('Pending')) return 'badge-review';
-  return 'badge-pending';
-}
+// Re-export pure helpers so existing callers don't need to change imports
+export { getBadgeClass, formatStatus, getFilesChanged };
 
 export function escapeHtml(text: string | null | undefined): string {
   if (text == null) return '';

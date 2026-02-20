@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppState } from '../state/AppState';
+import { useWebSocket } from '../hooks/useWebSocket';
 import styles from './Topbar.module.css';
 
 interface TopbarProps {
@@ -8,10 +9,11 @@ interface TopbarProps {
 }
 
 const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, sidebarCollapsed }) => {
-  const { autoRefresh, setAutoRefresh } = useAppState();
+  const { currentView, setCurrentView } = useAppState();
+  const { connected } = useWebSocket();
 
-  const toggleAutoRefresh = () => {
-    setAutoRefresh(!autoRefresh);
+  const toggleSettings = () => {
+    setCurrentView(currentView === 'settings' ? 'board' : 'settings');
   };
 
   return (
@@ -28,16 +30,16 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, sidebarCollapsed }) =>
         &#10097;&#10097; <span>Agent</span> Orchestration Console
       </span>
       <div className={styles.topbarRight}>
-        <div className={`${styles.liveDot} ${autoRefresh ? styles.active : ''}`} aria-hidden="true"></div>
-        <span className={styles.topbarLabel}>Auto-refresh {autoRefresh ? '5s' : 'off'}</span>
+        <div className={`${styles.liveDot} ${connected ? styles.active : ''}`} aria-hidden="true"></div>
+        <span className={styles.topbarLabel}>Live {connected ? 'connected' : 'disconnected'}</span>
         <button
           className={styles.btnIcon}
-          onClick={toggleAutoRefresh}
-          aria-label="Toggle auto-refresh"
-          aria-pressed={autoRefresh}
-          title="Toggle auto-refresh"
+          onClick={toggleSettings}
+          aria-label="Toggle settings"
+          aria-pressed={currentView === 'settings'}
+          title="Role Prompt Settings"
         >
-          &#8635;
+          &#9881;
         </button>
       </div>
     </header>

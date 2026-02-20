@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../state/AppState';
 import { APIClient } from '../api/client';
 import { Feature } from '../types';
 import ContentHeader from './ContentHeader';
 import Board from './Board';
 import DetailPanel from './DetailPanel';
+import SettingsPage from './SettingsPage';
+import { useWebSocket } from '../hooks/useWebSocket';
 import styles from './MainContent.module.css';
 
 const MainContent: React.FC = () => {
@@ -14,37 +16,14 @@ const MainContent: React.FC = () => {
     currentTasks,
     setCurrentTasks,
     currentView,
-    loading,
     setLoading,
-    autoRefresh,
   } = useAppState();
 
   const [featureTitle, setFeatureTitle] = useState('');
   const [currentFeature, setCurrentFeature] = useState<Feature | null>(null);
   const [showEmpty, setShowEmpty] = useState(true);
 
-  useEffect(() => {
-    if (currentFeatureSlug) {
-      loadFeatureTasks();
-    } else {
-      setShowEmpty(true);
-    }
-  }, [currentFeatureSlug, currentRepo]);
-
-  // Auto-refresh mechanism
-  useEffect(() => {
-    if (!autoRefresh || !currentFeatureSlug) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      loadFeatureTasks();
-    }, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(intervalId);
-  }, [autoRefresh, currentFeatureSlug, currentRepo]);
-
-  const loadFeatureTasks = async () => {
+  const loadFeatureTasks = useCallback(async () => {
     if (!currentFeatureSlug) return;
 
     setLoading(true);
@@ -76,9 +55,30 @@ const MainContent: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFeatureSlug, currentRepo]);
+
+  useEffect(() => {
+    if (currentFeatureSlug) {
+      loadFeatureTasks();
+    } else {
+      setShowEmpty(true);
+    }
+  }, [currentFeatureSlug, currentRepo, loadFeatureTasks]);
+
+  // Refresh tasks on WebSocket task-status-changed events
+  useWebSocket({
+    onMessage: useCallback((message: any) => {
+      if (message.type === 'task-status-changed' && currentFeatureSlug) {
+        loadFeatureTasks();
+      }
+    }, [currentFeatureSlug, loadFeatureTasks]),
+  });
 
   if (showEmpty || !currentFeatureSlug) {
+    // Still allow settings view even with no feature selected
+    if (currentView === 'settings') {
+      return <SettingsPage />;
+    }
     return (
       <main className={styles.mainContent} id="main-content" role="main">
         <div className={styles.emptyBoard}>
@@ -92,6 +92,10 @@ const MainContent: React.FC = () => {
         </div>
       </main>
     );
+  }
+
+  if (currentView === 'settings') {
+    return <SettingsPage />;
   }
 
   return (

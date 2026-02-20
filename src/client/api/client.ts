@@ -4,6 +4,7 @@
 import { RepoAPI } from './repos.api.js';
 import { FeatureAPI } from './features.api.js';
 import { TaskAPI } from './tasks.api.js';
+import { SettingsAPI, RolePromptConfig } from './settings.api.js';
 import { Feature, Task, ReviewSummary } from '../types/index.js';
 
 /**
@@ -94,7 +95,24 @@ export class APIClient {
   ): Promise<any> {
     return TaskAPI.getTasksByStatus(repoName, featureSlug, status);
   }
+
+  // Settings / Role Prompts
+  static async getAllRolePrompts(): Promise<RolePromptConfig[]> {
+    return SettingsAPI.getAllRolePrompts();
+  }
+
+  static async updateRolePrompt(
+    roleId: string,
+    update: Partial<Pick<RolePromptConfig, 'systemPrompt' | 'focusAreas' | 'researchInstructions' | 'requiredOutputFields'>>
+  ): Promise<RolePromptConfig> {
+    return SettingsAPI.updateRolePrompt(roleId, update);
+  }
+
+  static async resetRolePrompt(roleId: string): Promise<RolePromptConfig> {
+    return SettingsAPI.resetRolePrompt(roleId);
+  }
 }
 
 // Also export individual API modules for direct use
-export { RepoAPI, FeatureAPI, TaskAPI };
+export { RepoAPI, FeatureAPI, TaskAPI, SettingsAPI };
+export type { RolePromptConfig };

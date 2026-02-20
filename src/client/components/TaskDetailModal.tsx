@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { Task, Transition, AcceptanceCriterion, TestScenario } from '../types';
-import { formatStatus, getBadgeClass } from '../utils/formatters';
+import { formatStatus, getBadgeClass } from '../utils/badge-utils';
+import { getFilesChanged } from '../utils/transition-utils';
 import styles from './TaskDetailModal.module.css';
 
 interface TaskDetailModalProps {
@@ -51,6 +52,20 @@ function getTsPriorityClass(priority: string): string {
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, loading, error, onClose }) => {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  // T03: track which timeline entries have their files list expanded
+  const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
+
+  const toggleFiles = (idx: number) => {
+    setExpandedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
 
   // Focus close button on open
   useEffect(() => {
@@ -240,6 +255,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, loading, error,
                             {t.notes && (
                               <div className={styles.timelineNotes}>{t.notes}</div>
                             )}
+                            {/* T03: Expandable Files Changed list */}
+                            {(() => {
+                              const files = getFilesChanged(t.additionalData);
+                              if (files.length === 0) return null;
+                              const isOpen = expandedFiles.has(idx);
+                              return (
+                                <div className={styles.filesChanged}>
+                                  <button
+                                    className={styles.filesToggle}
+                                    onClick={() => toggleFiles(idx)}
+                                    aria-expanded={isOpen}
+                                    aria-controls={`files-${idx}`}
+                                  >
+                                    <span className={styles.filesToggleIcon}>
+                                      {isOpen ? '▾' : '▸'}
+                                    </span>
+                                    {files.length} file{files.length !== 1 ? 's' : ''} changed
+                                  </button>
+                                  {isOpen && (
+                                    <ul
+                                      id={`files-${idx}`}
+                                      className={styles.filesList}
+                                      aria-label="Files changed"
+                                    >
+                                      {files.map((file, fi) => (
+                                        <li key={fi} className={styles.fileItem}>
+                                          {file}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

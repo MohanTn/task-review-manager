@@ -12,6 +12,7 @@ import { createRepoRoutes } from './dashboard/routes/repo.routes.js';
 import { createFeatureRoutes } from './dashboard/routes/feature.routes.js';
 import { createTaskRoutes } from './dashboard/routes/task.routes.js';
 import { createRefinementRoutes } from './dashboard/routes/refinement.routes.js';
+import { createSettingsRoutes } from './dashboard/routes/settings.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,7 @@ export function startDashboard(port: number = 5111) {
   app.use('/api', createFeatureRoutes(reviewManager));
   app.use('/api', createTaskRoutes(reviewManager));
   app.use('/api', createRefinementRoutes(reviewManager));
+  app.use('/api', createSettingsRoutes(reviewManager));
 
   /**
    * Serve the dashboard HTML (for SPA routing)

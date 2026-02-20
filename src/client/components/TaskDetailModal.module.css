@@ -245,6 +245,7 @@
   position: relative;
 }
 
+/* T02: improved separator contrast (was rgba(255,255,255,0.1) – too faint) */
 .timelineEntry:not(:last-child) .timelineDot::after {
   content: '';
   position: absolute;
@@ -253,7 +254,7 @@
   transform: translateX(-50%);
   width: 2px;
   height: calc(100% + 4px);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .timelineLeft {
@@ -300,9 +301,10 @@
   color: var(--text-muted, #888);
 }
 
+/* T02: improved timestamp text contrast (was #777, now #a0a0a0 for better readability) */
 .timelineTimestamp {
   font-size: 11px;
-  color: var(--text-muted, #777);
+  color: #a0a0a0;
   margin-bottom: 4px;
 }
 
@@ -325,6 +327,101 @@
   padding: 2px 6px;
   border-radius: 3px;
   white-space: nowrap;
+}
+
+/* T01: Dark modal badge contrast overrides
+   Global badge classes use light backgrounds designed for light UI.
+   Override them inside .modal to use dark-bg-compatible colours with
+   sufficient contrast (WCAG AA ≥ 4.5:1) against the #1e1e2e backdrop. */
+.modal :global(.badge-pending) {
+  background: rgba(156, 163, 175, 0.15);
+  color: #d1d5db;
+}
+.modal :global(.badge-review) {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.modal :global(.badge-active) {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+.modal :global(.badge-done) {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+}
+.modal :global(.badge-blocked) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+/* T04: Files Changed expandable list styles */
+.filesChanged {
+  margin-top: 6px;
+}
+
+.filesToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: 0.2px;
+}
+
+.filesToggle:hover {
+  background: rgba(147, 197, 253, 0.1);
+  color: #bfdbfe;
+}
+
+.filesToggle:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.filesToggleIcon {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.filesList {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 2px;
+  border-left: 2px solid rgba(147, 197, 253, 0.2);
+  margin-left: 4px;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: 'Courier New', 'Consolas', monospace;
+  color: #cbd5e1;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.fileItem::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: rgba(147, 197, 253, 0.4);
+  flex-shrink: 0;
 }
 
 /* Loading / Error states */

@@ -6,8 +6,7 @@ interface AppState {
   currentRepo: string;
   currentFeatureSlug: string;
   currentTasks: Task[];
-  currentView: 'board' | 'detail';
-  autoRefresh: boolean;
+  currentView: 'board' | 'detail' | 'settings';
   searchQuery: string;
   loading: boolean;
 }
@@ -17,8 +16,7 @@ interface AppStateContextType extends AppState {
   setCurrentRepo: (repoName: string) => void;
   setCurrentFeature: (slug: string) => void;
   setCurrentTasks: (tasks: Task[]) => void;
-  setCurrentView: (view: 'board' | 'detail') => void;
-  setAutoRefresh: (enabled: boolean) => void;
+  setCurrentView: (view: 'board' | 'detail' | 'settings') => void;
   setSearchQuery: (query: string) => void;
   setLoading: (loading: boolean) => void;
   refreshData: () => Promise<void>;
@@ -33,7 +31,6 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     currentFeatureSlug: '',
     currentTasks: [],
     currentView: 'board',
-    autoRefresh: true,
     searchQuery: '',
     loading: false,
   });
@@ -54,12 +51,8 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     setState(prev => ({ ...prev, currentTasks: tasks }));
   }, []);
 
-  const setCurrentView = useCallback((view: 'board' | 'detail') => {
+  const setCurrentView = useCallback((view: 'board' | 'detail' | 'settings') => {
     setState(prev => ({ ...prev, currentView: view }));
-  }, []);
-
-  const setAutoRefresh = useCallback((enabled: boolean) => {
-    setState(prev => ({ ...prev, autoRefresh: enabled }));
   }, []);
 
   const setSearchQuery = useCallback((query: string) => {
@@ -81,7 +74,6 @@ export const AppStateProvider: React.FC<{ children: ReactNode }> = ({ children }
     setCurrentFeature,
     setCurrentTasks,
     setCurrentView,
-    setAutoRefresh,
     setSearchQuery,
     setLoading,
     refreshData,
