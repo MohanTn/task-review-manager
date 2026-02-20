@@ -2,7 +2,7 @@
  * Settings routes - Role Prompts configuration CRUD
  */
 import { Router, Request, Response } from 'express';
-import { TaskReviewManager } from '../../TaskReviewManager.js';
+import { AIConductor } from '../../AIConductor.js';
 import { PipelineRole } from '../../types.js';
 
 const VALID_ROLES: PipelineRole[] = [
@@ -22,7 +22,7 @@ function isValidRole(roleId: string): roleId is PipelineRole {
   return VALID_ROLES.includes(roleId as PipelineRole);
 }
 
-export function createSettingsRoutes(reviewManager: TaskReviewManager): Router {
+export function createSettingsRoutes(reviewManager: AIConductor): Router {
   const router = Router();
 
   /**

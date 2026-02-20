@@ -1,7 +1,7 @@
 /**
  * Task Status Event Streaming via WebSocket (T04)
  *
- * Hooks into TaskReviewManager to emit task status changes
+ * Hooks into AIConductor to emit task status changes
  * and broadcast them to all WebSocket clients in real-time (<100ms).
  */
 
@@ -10,7 +10,7 @@ import { wsManager } from './websocket.js';
 
 /**
  * Event Streamer for Task Status Changes
- * Bridges TaskReviewManager events with WebSocket broadcast
+ * Bridges AIConductor events with WebSocket broadcast
  */
 export class EventStreamer extends EventEmitter {
   private eventLog: any[] = [];

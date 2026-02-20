@@ -4,13 +4,13 @@
  * Tests multi-repo isolation, refinement workflow, and dashboard integration
  */
 
-import { TaskReviewManager } from '../TaskReviewManager.js';
+import { AIConductor } from '../AIConductor.js';
 import { DatabaseHandler } from '../DatabaseHandler.js';
 import * as path from 'path';
 import * as fs from 'fs-extra';
 
 describe('Multi-Repo Support', () => {
-  let manager: TaskReviewManager;
+  let manager: AIConductor;
   let dbHandler: DatabaseHandler;
   let testDbPath: string;
 
@@ -19,7 +19,7 @@ describe('Multi-Repo Support', () => {
     testDbPath = path.join(process.cwd(), `test-multirepo-${Date.now()}-${Math.random()}.db`);
     
     // Create new manager with test database
-    manager = new TaskReviewManager(testDbPath);
+    manager = new AIConductor(testDbPath);
     dbHandler = manager['dbHandler'];
     
     // Apply multi-repo migration

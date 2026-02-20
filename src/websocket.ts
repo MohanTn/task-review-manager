@@ -146,7 +146,7 @@ export class WebSocketServerManager extends EventEmitter {
     const welcomeMsg = {
       type: 'welcome',
       connectionId,
-      message: 'Connected to Task Review Manager WebSocket server',
+      message: 'Connected to AIConductor WebSocket server',
       timestamp: Date.now(),
     };
     ws.send(JSON.stringify(welcomeMsg));

@@ -8,12 +8,12 @@
  *  - GET /api/repos (list repos)
  *  - GET /api/features (list features)
  *
- * Tests via TaskReviewManager + DatabaseHandler to validate the backend logic
+ * Tests via AIConductor + DatabaseHandler to validate the backend logic
  * that powers the dashboard endpoints, since dashboard.ts uses import.meta.url
  * which requires ESM runtime.
  */
 
-import { TaskReviewManager } from '../TaskReviewManager.js';
+import { AIConductor } from '../AIConductor.js';
 import { DatabaseHandler } from '../DatabaseHandler.js';
 import * as path from 'path';
 import * as fs from 'fs-extra';
@@ -25,7 +25,7 @@ const FEATURE_SLUG = 'api-test-feature';
 const FEATURE_NAME = 'API Test Feature';
 
 describe('Dashboard API Logic Tests (T01)', () => {
-  let manager: TaskReviewManager;
+  let manager: AIConductor;
   let dbHandler: DatabaseHandler;
   let testDbPath: string;
 
@@ -34,7 +34,7 @@ describe('Dashboard API Logic Tests (T01)', () => {
       process.cwd(),
       `test-dashboard-api-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
     );
-    manager = new TaskReviewManager(testDbPath);
+    manager = new AIConductor(testDbPath);
     dbHandler = (manager as any).dbHandler as DatabaseHandler;
 
     // Apply multi-repo migration

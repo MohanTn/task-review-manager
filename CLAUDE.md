@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Task Review Manager** is an MCP (Model Context Protocol) server that orchestrates multi-stakeholder task review workflows. It provides:
+**AIConductor** is an MCP (Model Context Protocol) server that orchestrates multi-stakeholder task review workflows. It provides:
 - **Feature Refinement Pipeline** — Break ideas into tasks, route through stakeholder reviews (Product → Architect → UX/UX Expert → Security)
 - **Development Execution Pipeline** — Drive tasks through implementation (Developer → Code Reviewer → QA)
 - **Web Dashboard** — Real-time progress tracking with auto-refresh
@@ -24,7 +24,7 @@ The server uses SQLite for persistence and can run either locally or in Docker w
 │  - Handles tool requests and state transitions             │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │ TaskReviewManager (orchestration logic)              │  │
+│  │ AIConductor (orchestration logic)              │  │
 │  │ - Feature/Task CRUD                                  │  │
 │  │ - Stakeholder review handling                        │  │
 │  │ - Development pipeline transitions                   │  │
@@ -156,10 +156,10 @@ docker-compose up -d
 npm run migrate
 
 # Access SQLite directly in Docker
-docker exec -it task-review-manager-mcp sqlite3 /data/tasks.db
+docker exec -it aiconductor-mcp sqlite3 /data/tasks.db
 
 # Backup database
-docker cp task-review-manager-mcp:/data/tasks.db ./tasks-backup.db
+docker cp aiconductor-mcp:/data/tasks.db ./tasks-backup.db
 ```
 
 ### Docker
@@ -168,7 +168,7 @@ docker cp task-review-manager-mcp:/data/tasks.db ./tasks-backup.db
 docker-compose up -d --build
 
 # View logs
-docker logs -f task-review-manager-mcp
+docker logs -f aiconductor-mcp
 
 # Rebuild after code changes
 docker-compose up -d --build
@@ -183,7 +183,7 @@ docker-compose down -v
 
 ### Core Backend (`src/`)
 - **`index.ts`** — MCP server entry point; defines all 20+ tools
-- **`TaskReviewManager.ts`** — Business logic for all workflow operations
+- **`AIConductor.ts`** — Business logic for all workflow operations
 - **`WorkflowValidator.ts`** — State machine; validates transitions and returns system prompts
 - **`DatabaseHandler.ts`** — SQLite CRUD operations; all data persistence
 - **`rolePrompts.ts`** — System prompts for each stakeholder role (Product Director, Architect, etc.)
@@ -295,7 +295,7 @@ See `DatabaseHandler.ts` `initializeTables()` for complete schema.
 
 ### Adding a New MCP Tool
 1. Define input/output types in `src/types.ts`
-2. Implement logic in `src/TaskReviewManager.ts`
+2. Implement logic in `src/AIConductor.ts`
 3. Add tool definition in `src/index.ts` (in `TOOLS` array)
 4. Add handler in `handleToolCall()` switch statement
 
@@ -326,7 +326,7 @@ sqlite3 ./tasks.db ".tables"
 sqlite3 ./tasks.db "SELECT * FROM tasks WHERE feature_slug = 'my-feature';"
 
 # Docker
-docker exec -it task-review-manager-mcp sqlite3 /data/tasks.db ".schema tasks"
+docker exec -it aiconductor-mcp sqlite3 /data/tasks.db ".schema tasks"
 ```
 
 ### 2. Check MCP Tool Availability
@@ -345,7 +345,7 @@ Use `get_task_status` to see:
 ### 4. Dashboard Issues
 - Check browser console for API errors
 - Verify `localhost:5111/api/health` returns `{"status":"ok",...}`
-- Check server logs: `docker logs -f task-review-manager-mcp`
+- Check server logs: `docker logs -f aiconductor-mcp`
 - Verify `/api/repos` endpoint returns data
 
 ### 5. TypeScript Compilation
@@ -410,7 +410,7 @@ Container has shared database volume, MCP server, and dashboard built-in.
 
 If unclear, check logs:
 ```bash
-docker logs -f task-review-manager-mcp
+docker logs -f aiconductor-mcp
 # or locally:
 npm run dev
 ```

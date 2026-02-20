@@ -1,7 +1,7 @@
 # Recommendations Implementation Summary
 
 ## Overview
-All 8 recommendations have been successfully implemented and integrated into the task-review-manager MCP server. The refine-feature and dev-workflow commands have been updated to utilize these new tools throughout their execution.
+All 8 recommendations have been successfully implemented and integrated into the aiconductor MCP server. The refine-feature and dev-workflow commands have been updated to utilize these new tools throughout their execution.
 
 ---
 
@@ -22,7 +22,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - Reduces context load per workflow update
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `getWorkflowSnapshot()` method
+- `src/AIConductor.ts`: Added `getWorkflowSnapshot()` method
 - `src/index.ts`: Registered tool with input/output schemas
 - `.claude/commands/refine-feature.md`: Step 1 uses snapshot for context efficiency
 - `.claude/commands/dev-workflow.md`: Step 1 and Step 7 use snapshot
@@ -45,7 +45,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - QA batch: 5 tasks → 1 call instead of 5 calls
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `batchTransitionTasks()` and `batchUpdateAcceptanceCriteria()` methods
+- `src/AIConductor.ts`: Added `batchTransitionTasks()` and `batchUpdateAcceptanceCriteria()` methods
 - `src/index.ts`: Registered both tools
 - `.claude/commands/dev-workflow.md`: Sections 6.1-6.3 use batch operations
 
@@ -72,7 +72,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 
 **Files Modified**:
 - `src/DatabaseHandler.ts`: Added `workflow_checkpoints` table and checkpoint management methods
-- `src/TaskReviewManager.ts`: Added checkpoint management methods
+- `src/AIConductor.ts`: Added checkpoint management methods
 - `src/index.ts`: Registered all 4 checkpoint tools
 - `.claude/commands/refine-feature.md`: Step 8 saves checkpoint after refinement
 - `.claude/commands/dev-workflow.md`: Step 6.5-6.6 handle checkpoints and interruption recovery
@@ -100,7 +100,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - Critical path uses longest chain
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `getTaskExecutionPlan()` with topological sort
+- `src/AIConductor.ts`: Added `getTaskExecutionPlan()` with topological sort
 - `src/index.ts`: Registered tool
 - `.claude/commands/refine-feature.md`: Step 6.5 validates execution plan
 - `.claude/commands/dev-workflow.md`: Step 4 uses execution plan for optimal ordering
@@ -130,7 +130,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - Guides decisions when handling rework
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `getWorkflowMetrics()` with comprehensive analysis
+- `src/AIConductor.ts`: Added `getWorkflowMetrics()` with comprehensive analysis
 - `src/index.ts`: Registered tool
 - `.claude/commands/dev-workflow.md`: Steps 1, 6.4, 7 check metrics
 
@@ -177,7 +177,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - Ensures high-quality reviews with all required data
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `validateReviewCompleteness()` method
+- `src/AIConductor.ts`: Added `validateReviewCompleteness()` method
 - `src/index.ts`: Registered tool
 - `.claude/commands/refine-feature.md`: Sections 7.1-7.4 call validation before submission
 
@@ -201,7 +201,7 @@ All 8 recommendations have been successfully implemented and integrated into the
 - Enables learning from previous implementations
 
 **Files Modified**:
-- `src/TaskReviewManager.ts`: Added `getSimilarTasks()` method with similarity scoring
+- `src/AIConductor.ts`: Added `getSimilarTasks()` method with similarity scoring
 - `src/index.ts`: Registered tool
 - Available for optional use in estimation workflows
 
@@ -259,7 +259,7 @@ CREATE TABLE feature_attachments (...);
 CREATE TABLE feature_clarifications (...);
 ```
 
-### New Methods in TaskReviewManager
+### New Methods in AIConductor
 1. `getWorkflowSnapshot(repoName, featureSlug)` - Rec 1
 2. `batchTransitionTasks(input)` - Rec 2
 3. `batchUpdateAcceptanceCriteria(input)` - Rec 2
@@ -374,7 +374,7 @@ Recommendations 9-10 can be implemented in future phases:
 |------|---------|
 | `src/types.ts` | Added 8 new input/result interface groups (~900 lines) |
 | `src/DatabaseHandler.ts` | Added checkpoint table + 3 new methods |
-| `src/TaskReviewManager.ts` | Added 8 new methods (~500 lines) |
+| `src/AIConductor.ts` | Added 8 new methods (~500 lines) |
 | `src/index.ts` | Added 8 new MCP tool definitions + handlers |
 | `.claude/commands/refine-feature.md` | Updated with 6 new recommendation integrations |
 | `.claude/commands/dev-workflow.md` | Updated with 7 new recommendation integrations |
