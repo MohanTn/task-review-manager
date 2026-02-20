@@ -89,8 +89,12 @@ export class WebSocketServerManager extends EventEmitter {
       return;
     }
 
-    // Extract authentication token from headers
-    const authToken = request.headers['authorization']?.split(' ')[1];
+    // Extract authentication token — browsers cannot send custom WS headers,
+    // so accept token from query string (?token=...) as the primary mechanism,
+    // with the Authorization header as a fallback for server-side clients.
+    const urlParams = new URL(request.url, 'http://localhost').searchParams;
+    const queryToken = urlParams.get('token');
+    const authToken = queryToken || request.headers['authorization']?.split(' ')[1];
     if (!authToken) {
       this.logEvent('auth', 'missing-token', `Connection from ${clientIp} without auth token`);
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
