@@ -32,6 +32,7 @@ import {
   AddTaskResult,
   ListFeaturesResult,
   DeleteFeatureResult,
+  DeleteRepoResult,
   GetFeatureResult,
   UpdateTaskInput,
   UpdateTaskResult,
@@ -896,6 +897,35 @@ export class TaskReviewManager {
       return {
         success: false,
         features: [],
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Delete a repo and all its features, tasks, and related data
+   */
+  async deleteRepo(repoName: string): Promise<DeleteRepoResult> {
+    try {
+      const result = this.dbHandler.deleteRepo(repoName);
+      if (!result.deleted) {
+        return {
+          success: false,
+          repoName,
+          error: `Repository '${repoName}' not found`,
+        };
+      }
+      return {
+        success: true,
+        repoName,
+        featureCount: result.featureCount,
+        taskCount: result.taskCount,
+        message: `Repository '${repoName}' deleted with ${result.featureCount} features and ${result.taskCount} tasks`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        repoName,
         error: error instanceof Error ? error.message : String(error),
       };
     }

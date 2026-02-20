@@ -20,4 +20,13 @@ export class RepoAPI extends BaseClient {
       body: JSON.stringify({ repoName, description }),
     });
   }
+
+  /**
+   * Delete a repository and all its features, tasks, and related data
+   */
+  static async deleteRepo(repoName: string): Promise<any> {
+    return this.request(`${this.apiBase}/repos/${encodeURIComponent(repoName)}`, {
+      method: 'DELETE',
+    });
+  }
 }

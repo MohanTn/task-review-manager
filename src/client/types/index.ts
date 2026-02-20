@@ -1,3 +1,13 @@
+export interface Transition {
+  from: string;
+  to: string;
+  approver?: string | null;
+  actor?: string | null;
+  timestamp: string;
+  notes?: string | null;
+  additionalData?: Record<string, any> | null;
+}
+
 export interface Task {
   taskId: string;
   title: string;
@@ -11,6 +21,7 @@ export interface Task {
   dependencies?: string[];
   outOfScope?: string[];
   stakeholderReviews?: StakeholderReview[];
+  transitions?: Transition[];
 }
 
 export interface AcceptanceCriterion {

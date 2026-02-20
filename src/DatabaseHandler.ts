@@ -833,6 +833,41 @@ export class DatabaseHandler {
   }
 
   /**
+   * Delete a repo and all associated features, tasks, and related data
+   */
+  deleteRepo(repoName: string): { deleted: boolean; featureCount: number; taskCount: number } {
+    // Validate repo exists
+    const repo = this.db.prepare(`SELECT repo_name FROM repos WHERE repo_name = ?`).get(repoName) as any;
+    if (!repo) {
+      return { deleted: false, featureCount: 0, taskCount: 0 };
+    }
+
+    const featureCount = (this.db.prepare(`SELECT COUNT(*) as count FROM features WHERE repo_name = ?`).get(repoName) as any).count;
+    const taskCount = (this.db.prepare(`SELECT COUNT(*) as count FROM tasks WHERE repo_name = ?`).get(repoName) as any).count;
+
+    const doDelete = this.db.transaction(() => {
+      // Delete in child-first order (FK cascades handle most, but explicit for clarity)
+      this.db.prepare(`DELETE FROM feature_clarifications WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM feature_attachments WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM feature_acceptance_criteria WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM feature_test_scenarios WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM feature_refinement_steps WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM workflow_checkpoints WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM stakeholder_reviews WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM test_scenarios WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM acceptance_criteria WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM transitions WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM tasks WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM features WHERE repo_name = ?`).run(repoName);
+      this.db.prepare(`DELETE FROM repos WHERE repo_name = ?`).run(repoName);
+    });
+
+    doDelete();
+    console.log(`[deleteRepo] Deleted repo '${repoName}': ${featureCount} features, ${taskCount} tasks removed at ${new Date().toISOString()}`);
+    return { deleted: true, featureCount, taskCount };
+  }
+
+  /**
    * Add a task to a feature
    */
   addTask(featureSlug: string, task: Partial<Task>, repoName: string = 'default'): string {

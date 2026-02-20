@@ -81,5 +81,33 @@ export function createRepoRoutes(reviewManager: TaskReviewManager): Router {
     }
   });
 
+  /**
+   * DELETE /api/repos/:repoName
+   * Delete a repository and all associated features, tasks, and related data
+   */
+  router.delete('/repos/:repoName', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const repoName = req.params.repoName as string;
+
+      if (!repoName || !/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(repoName) && !/^[a-z0-9]$/.test(repoName)) {
+        res.status(400).json({ error: 'Invalid repoName format' });
+        return;
+      }
+
+      const result = await reviewManager.deleteRepo(repoName);
+
+      if (result.success) {
+        res.json(result);
+      } else if (result.error && result.error.includes('not found')) {
+        res.status(404).json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: message });
+    }
+  });
+
   return router;
 }

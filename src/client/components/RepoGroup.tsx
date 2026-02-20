@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Repo } from '../types';
 import FeatureItem from './FeatureItem';
 import styles from './Sidebar.module.css';
@@ -9,6 +9,8 @@ interface RepoGroupProps {
   onToggle: () => void;
   onSelectFeature: (slug: string) => void;
   activeSlug: string;
+  onDeleteRepo: () => Promise<void>;
+  onDeleteFeature: (featureSlug: string) => Promise<void>;
 }
 
 const RepoGroup: React.FC<RepoGroupProps> = ({
@@ -17,7 +19,27 @@ const RepoGroup: React.FC<RepoGroupProps> = ({
   onToggle,
   onSelectFeature,
   activeSlug,
+  onDeleteRepo,
+  onDeleteFeature,
 }) => {
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteRepo = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const featureCount = repo.features.length;
+    const taskCount = repo.features.reduce((sum, f) => sum + (f.totalTasks ?? f.tasks?.length ?? 0), 0);
+    const confirmed = window.confirm(
+      `Delete repo "${repo.repoName}"?\n\nThis will permanently delete ${featureCount} feature(s) and ${taskCount} task(s). This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await onDeleteRepo();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className={`${styles.repoGroup} ${expanded ? styles.open : ''}`}>
       <div
@@ -36,8 +58,17 @@ const RepoGroup: React.FC<RepoGroupProps> = ({
         <span className={styles.repoChevron}>▶</span>
         <span className={styles.repoNameText}>{repo.repoName}</span>
         <span className={styles.repoBadge}>{repo.features.length}</span>
+        <button
+          className={styles.deleteBtn}
+          onClick={handleDeleteRepo}
+          disabled={deleting}
+          aria-label={`Delete repo: ${repo.repoName}`}
+          title="Delete repository"
+        >
+          🗑
+        </button>
       </div>
-      
+
       {expanded && (
         <div className={styles.repoFeatures}>
           {repo.features.map(feature => (
@@ -46,6 +77,7 @@ const RepoGroup: React.FC<RepoGroupProps> = ({
               feature={feature}
               active={feature.featureSlug === activeSlug}
               onClick={() => onSelectFeature(feature.featureSlug)}
+              onDelete={() => onDeleteFeature(feature.featureSlug)}
             />
           ))}
           {repo.features.length === 0 && (

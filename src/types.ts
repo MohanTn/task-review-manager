@@ -465,6 +465,15 @@ export interface DeleteFeatureResult {
   error?: string;
 }
 
+export interface DeleteRepoResult {
+  success: boolean;
+  repoName: string;
+  featureCount?: number;
+  taskCount?: number;
+  message?: string;
+  error?: string;
+}
+
 export interface GetFeatureResult {
   success: boolean;
   feature?: TaskFile;
