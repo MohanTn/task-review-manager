@@ -3,7 +3,7 @@
  * Includes WebSocket server for real-time updates (T01)
  */
 import express from 'express';
-import { TaskReviewManager } from './TaskReviewManager.js';
+import { AIConductor } from './AIConductor.js';
 import { wsManager } from './websocket.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,8 +26,8 @@ export function startDashboard(port: number = 5111) {
   const app = express();
   const PORT = process.env.PORT || port;
 
-  // Initialize task review manager
-  const reviewManager = new TaskReviewManager();
+  // Initialize AIConductor
+  const reviewManager = new AIConductor();
 
   // Middleware
   app.use(express.json());
@@ -66,14 +66,14 @@ export function startDashboard(port: number = 5111) {
   wsManager.initialize(httpServer);
 
   // Note: Task status change events will be broadcast via WebSocket
-  // when implemented in TaskReviewManager (T04)
+  // when implemented in AIConductor (T04)
 
   // Start HTTP server
   httpServer.listen(PORT, () => {
     console.error(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                                                                ║
-║   Task Review Manager Dashboard                                ║
+║   AIConductor Dashboard                                ║
 ║                                                                ║
 ║   🚀 Server running on http://localhost:${PORT}                   ║
 ║   🔌 WebSocket server on ws://localhost:${PORT}                   ║

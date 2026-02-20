@@ -1,5 +1,5 @@
 /**
- * TaskReviewManager - Core business logic for task review operations
+ * AIConductor - Core business logic for task review operations
  */
 import {
   ReviewInput,
@@ -83,7 +83,7 @@ import { DatabaseHandler } from './DatabaseHandler.js';
 import { WorkflowValidator } from './WorkflowValidator.js';
 import { RolePromptConfig } from './rolePrompts.js';
 
-export class TaskReviewManager {
+export class AIConductor {
   private dbHandler: DatabaseHandler;
   private validator: WorkflowValidator;
 

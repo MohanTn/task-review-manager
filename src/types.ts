@@ -1,5 +1,5 @@
 /**
- * Type definitions for task review manager MCP server
+ * Type definitions for AIConductor MCP server
  */
 
 export type TaskStatus =

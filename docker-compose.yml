@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
-  task-review-manager:
+  aiconductor:
     build: .
-    container_name: task-review-manager-mcp
+    container_name: aiconductor-mcp
     volumes:
       # Shared SQLite database volume (persistent across container restarts)
       - task-review-data:/data

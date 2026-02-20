@@ -1,4 +1,4 @@
-# Task Review Manager
+# AIConductor
 
 > An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that orchestrates multi-stakeholder feature refinement and development execution workflows for AI-assisted software teams.
 
@@ -11,7 +11,7 @@
 
 ## Overview
 
-Task Review Manager gives your AI coding agent a structured, auditable pipeline — from raw feature idea to merged code. It exposes **39 MCP tools** that any MCP-compatible agent (Claude, Copilot, Cursor, Cline, etc.) can call to drive tasks through two workflows:
+AIConductor gives your AI coding agent a structured, auditable pipeline — from raw feature idea to merged code. It exposes **39 MCP tools** that any MCP-compatible agent (Claude, Copilot, Cursor, Cline, etc.) can call to drive tasks through two workflows:
 
 1. **Feature Refinement** — Break a feature into discrete tasks, then route each task through a sequential stakeholder approval chain before any code is written.
 2. **Development Execution** — Drive approved tasks through a Developer → Code Reviewer → QA lifecycle with full audit history.
@@ -41,8 +41,8 @@ Task Review Manager gives your AI coding agent a structured, auditable pipeline 
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/task-review-manager.git
-cd task-review-manager
+git clone https://github.com/your-org/aiconductor.git
+cd aiconductor
 docker compose up -d
 ```
 
@@ -53,9 +53,9 @@ The MCP server and dashboard are now running. Connect your AI agent by adding th
 ```json
 {
   "mcpServers": {
-    "task-review-manager": {
+    "aiconductor": {
       "command": "docker",
-      "args": ["exec", "-i", "task-review-manager-mcp", "node", "dist/bundle.js"]
+      "args": ["exec", "-i", "aiconductor-mcp", "node", "dist/bundle.js"]
     }
   }
 }
@@ -66,9 +66,9 @@ The MCP server and dashboard are now running. Connect your AI agent by adding th
 ```json
 {
   "mcp.servers": {
-    "task-review-manager": {
+    "aiconductor": {
       "command": "docker",
-      "args": ["exec", "-i", "task-review-manager-mcp", "node", "dist/bundle.js"]
+      "args": ["exec", "-i", "aiconductor-mcp", "node", "dist/bundle.js"]
     }
   }
 }
@@ -232,7 +232,7 @@ Open **http://localhost:5111** in your browser.
 ```
 src/
 ├── index.ts                 # MCP server — tool definitions and request handling
-├── TaskReviewManager.ts     # Business logic for all workflow operations
+├── AIConductor.ts     # Business logic for all workflow operations
 ├── WorkflowValidator.ts     # State machine — validates transitions and returns role prompts
 ├── DatabaseHandler.ts       # SQLite CRUD operations
 ├── rolePrompts.ts           # System prompts for each stakeholder role

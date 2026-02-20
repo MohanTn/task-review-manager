@@ -1,5 +1,5 @@
 /**
- * MCP Server for Task Review Manager
+ * MCP Server for AIConductor
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -7,14 +7,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { TaskReviewManager } from './TaskReviewManager.js';
+import { AIConductor } from './AIConductor.js';
 import { ReviewInput, StakeholderRole } from './types.js';
 import { startDashboard } from './dashboard.js';
 
 // Initialize the MCP server
 const server = new Server(
   {
-    name: 'task-review-manager-mcp',
+    name: 'aiconductor-mcp',
     version: '1.0.0',
   },
   {
@@ -24,8 +24,8 @@ const server = new Server(
   }
 );
 
-// Initialize task review manager
-const reviewManager = new TaskReviewManager();
+// Initialize AIConductor
+const reviewManager = new AIConductor();
 
 // Tool definitions
 const TOOLS = [
@@ -626,7 +626,7 @@ const TOOLS = [
       properties: {
         repoName: {
           type: 'string',
-          description: 'Unique repository name (e.g., "task-review-manager")',
+          description: 'Unique repository name (e.g., "aiconductor")',
         },
         repoPath: {
           type: 'string',
@@ -1867,7 +1867,7 @@ async function main() {
   // Start MCP server on stdio
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Task Review Manager MCP server running on stdio');
+  console.error('AIConductor MCP server running on stdio');
 }
 
 main().catch((error) => {

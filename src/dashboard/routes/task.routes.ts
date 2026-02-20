@@ -2,9 +2,9 @@
  * Task-related routes
  */
 import { Router, Request, Response } from 'express';
-import { TaskReviewManager } from '../../TaskReviewManager.js';
+import { AIConductor } from '../../AIConductor.js';
 
-export function createTaskRoutes(reviewManager: TaskReviewManager): Router {
+export function createTaskRoutes(reviewManager: AIConductor): Router {
   const router = Router();
 
   /**

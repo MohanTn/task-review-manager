@@ -1,8 +1,8 @@
 /**
  * Comprehensive MCP Tool Test Suite
  *
- * Tests ALL 27 MCP tools exposed by the task-review-manager server.
- * Ensures every tool works correctly end-to-end through TaskReviewManager.
+ * Tests ALL 27 MCP tools exposed by the aiconductor server.
+ * Ensures every tool works correctly end-to-end through AIConductor.
  *
  * Tools tested:
  *  1. register_repo
@@ -34,7 +34,7 @@
  * 27. generate_refinement_report
  */
 
-import { TaskReviewManager } from '../TaskReviewManager.js';
+import { AIConductor } from '../AIConductor.js';
 import { DatabaseHandler } from '../DatabaseHandler.js';
 import * as path from 'path';
 import * as fs from 'fs-extra';
@@ -47,7 +47,7 @@ const FEATURE_NAME = 'Test Feature';
  * Helper to create a fully set up manager with repo + feature + task.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function setupFullEnvironment(manager: TaskReviewManager, _dbHandler?: DatabaseHandler) {
+async function setupFullEnvironment(manager: AIConductor, _dbHandler?: DatabaseHandler) {
   await manager.registerRepo({ repoName: REPO_NAME, repoPath: '/test/repo' });
   await manager.createFeature({
     repoName: REPO_NAME,
@@ -77,13 +77,13 @@ async function setupFullEnvironment(manager: TaskReviewManager, _dbHandler?: Dat
 }
 
 describe('All MCP Tools - Comprehensive Test Suite', () => {
-  let manager: TaskReviewManager;
+  let manager: AIConductor;
   let dbHandler: DatabaseHandler;
   let testDbPath: string;
 
   beforeEach(() => {
     testDbPath = path.join(process.cwd(), `test-all-tools-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
-    manager = new TaskReviewManager(testDbPath);
+    manager = new AIConductor(testDbPath);
     dbHandler = (manager as any).dbHandler as DatabaseHandler;
 
     // Apply multi-repo migration

@@ -13,7 +13,7 @@ No file must be created for this workflow. All outputs should be returned in the
 - Determine scope: feature enhancement, bug fix, or refinement
 - Gather context about the requirement
 - Compose a concise 2-5 sentence plain-text summary of the feature scope from the user's input — this will be saved as the feature description in the database
-- **[NEW - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` to view any prior work on this feature (for context efficiency)
+- **[NEW - Rec 1]** Call `mcp__aiconductor__get_workflow_snapshot` to view any prior work on this feature (for context efficiency)
 
 # Step 2 - Attachment Analysis
 - For each attachment analyze:
@@ -54,11 +54,11 @@ No file must be created for this workflow. All outputs should be returned in the
   - Map relevant test scenarios to the task
   - Define what is out of scope for this task
   - Set orderOfExecution (sequential numbering)
-- Use the MCP tool `mcp__task-review-manager__create_feature` to create the feature entry
+- Use the MCP tool `mcp__aiconductor__create_feature` to create the feature entry
   - **Pass the `description` parameter** with the 2-5 sentence plain-text summary composed in Step 1
   - The description must be the original user requirement text (condensed) — NOT a hallucinated value
   - Example: `{ featureSlug: "...", featureName: "...", description: "...", repoName: "..." }`
-- Use the MCP tool `mcp__task-review-manager__add_task` for each task
+- Use the MCP tool `mcp__aiconductor__add_task` for each task
 - Ensure each task is:
   - Independently testable
   - Has clear boundaries
@@ -66,20 +66,20 @@ No file must be created for this workflow. All outputs should be returned in the
   - Maps to specific test scenarios
 
 # Step 6.5 - Validate Task Dependencies & Execution Order [NEW - Rec 4]
-- Call `mcp__task-review-manager__get_task_execution_plan` to analyze dependencies
+- Call `mcp__aiconductor__get_task_execution_plan` to analyze dependencies
 - Review optimal order, parallelizable phases, and any circular dependencies or warnings
-- If dependencies need adjustment, update tasks using `mcp__task-review-manager__update_task`
+- If dependencies need adjustment, update tasks using `mcp__aiconductor__update_task`
 
 # Step 7 - Stakeholder Review Cycle (Batched by Role)
 **CRITICAL: Process ALL tasks through each role in a single batch before moving to the next role. This is far more efficient than switching roles per task.**
 
 ## 7.0 - Initialize Task List
-- **[UPDATED - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` for context-efficient overview (instead of `get_tasks_by_status`)
+- **[UPDATED - Rec 1]** Call `mcp__aiconductor__get_workflow_snapshot` for context-efficient overview (instead of `get_tasks_by_status`)
 - Store the task IDs for reference
 
 ## 7.1 - PRODUCT DIRECTOR REVIEW (BATCH ALL TASKS)
 **Single role adoption for entire batch:**
-- Call `mcp__task-review-manager__get_next_step` to get the systemPrompt for Product Director role
+- Call `mcp__aiconductor__get_next_step` to get the systemPrompt for Product Director role
 - Adopt Product Director identity ONCE for this entire batch
 - Get all tasks with status "PendingProductDirector"
 - For each task (process ALL together):
@@ -89,8 +89,8 @@ No file must be created for this workflow. All outputs should be returned in the
   - Prepare detailed review notes
 - Conduct required research once for the batch (market analysis, competitor analysis)
 - For each task:
-  - **[NEW - Rec 7]** Call `mcp__task-review-manager__validate_review_completeness` before submitting to check all required fields are present
-  - Call `mcp__task-review-manager__add_stakeholder_review` with:
+  - **[NEW - Rec 7]** Call `mcp__aiconductor__validate_review_completeness` before submitting to check all required fields are present
+  - Call `mcp__aiconductor__add_stakeholder_review` with:
     - decision: "approve" or "reject"
     - notes: Detailed review for this specific task
     - additionalFields: `marketAnalysis`, `competitorAnalysis`, **`quickSummary`** (1-2 sentence TL;DR - Rec 6)
@@ -100,7 +100,7 @@ No file must be created for this workflow. All outputs should be returned in the
 
 ## 7.2 - ARCHITECT REVIEW (BATCH ALL TASKS)
 **Single role adoption for entire batch:**
-- Call `mcp__task-review-manager__get_next_step` to get the systemPrompt for Architect role
+- Call `mcp__aiconductor__get_next_step` to get the systemPrompt for Architect role
 - Adopt Architect identity ONCE for this entire batch
 - Get all tasks with status "PendingArchitect"
 - For each task (process ALL together):
@@ -110,7 +110,7 @@ No file must be created for this workflow. All outputs should be returned in the
   - Identify any technical concerns or improvements
   - Prepare detailed review notes
 - Conduct required research once for the batch (design patterns, best practices, technologies)
-- For each task: Call `mcp__task-review-manager__add_stakeholder_review` with:
+- For each task: Call `mcp__aiconductor__add_stakeholder_review` with:
   - decision: "approve" or "reject"
   - notes: Detailed review for this specific task
   - additionalFields: `technologyRecommendations`, `designPatterns`
@@ -120,7 +120,7 @@ No file must be created for this workflow. All outputs should be returned in the
 
 ## 7.3 - UI/UX EXPERT REVIEW (BATCH ALL TASKS)
 **Single role adoption for entire batch:**
-- Call `mcp__task-review-manager__get_next_step` to get the systemPrompt for UI/UX Expert role
+- Call `mcp__aiconductor__get_next_step` to get the systemPrompt for UI/UX Expert role
 - Adopt UI/UX Expert identity ONCE for this entire batch
 - Get all tasks with status "PendingUiUxExpert"
 - For each task (process ALL together):
@@ -130,7 +130,7 @@ No file must be created for this workflow. All outputs should be returned in the
   - Identify any UX concerns or improvements
   - Prepare detailed review notes
 - Conduct required research once for the batch (UX best practices, accessibility, user behavior)
-- For each task: Call `mcp__task-review-manager__add_stakeholder_review` with:
+- For each task: Call `mcp__aiconductor__add_stakeholder_review` with:
   - decision: "approve" or "reject"
   - notes: Detailed review for this specific task
   - additionalFields: `usabilityFindings`, `accessibilityRequirements`, `userBehaviorInsights`
@@ -140,7 +140,7 @@ No file must be created for this workflow. All outputs should be returned in the
 
 ## 7.4 - SECURITY OFFICER REVIEW (BATCH ALL TASKS)
 **Single role adoption for entire batch:**
-- Call `mcp__task-review-manager__get_next_step` to get the systemPrompt for Security Officer role
+- Call `mcp__aiconductor__get_next_step` to get the systemPrompt for Security Officer role
 - Adopt Security Officer identity ONCE for this entire batch
 - Get all tasks with status "PendingSecurityOfficer"
 - For each task (process ALL together):
@@ -150,7 +150,7 @@ No file must be created for this workflow. All outputs should be returned in the
   - Identify any security concerns or improvements
   - Prepare detailed review notes
 - Conduct required research once for the batch (OWASP guidelines, security best practices, compliance)
-- For each task: Call `mcp__task-review-manager__add_stakeholder_review` with:
+- For each task: Call `mcp__aiconductor__add_stakeholder_review` with:
   - decision: "approve" or "reject"
   - notes: Detailed review for this specific task
   - additionalFields: `securityRequirements`, `complianceNotes`
@@ -159,17 +159,17 @@ No file must be created for this workflow. All outputs should be returned in the
 - **Progress output**: "Security Officer batch complete: [N] approved, [M] rejected"
 
 ## 7.5 - Handle Rejected Tasks (If Any)
-- Call `mcp__task-review-manager__get_tasks_by_status` with status "NeedsRefinement" to find rejected tasks
+- Call `mcp__aiconductor__get_tasks_by_status` with status "NeedsRefinement" to find rejected tasks
 - If any tasks were rejected:
   - Review the issues identified by each stakeholder
-  - Update task details using `mcp__task-review-manager__update_task` to address concerns
-  - **[NEW - Rec 3]** Optionally: Use `mcp__task-review-manager__rollback_last_decision` to undo incorrect review (if needed)
-  - Call `mcp__task-review-manager__transition_task_status` to move back to "PendingProductDirector"
+  - Update task details using `mcp__aiconductor__update_task` to address concerns
+  - **[NEW - Rec 3]** Optionally: Use `mcp__aiconductor__rollback_last_decision` to undo incorrect review (if needed)
+  - Call `mcp__aiconductor__transition_task_status` to move back to "PendingProductDirector"
   - Restart the review cycle from Step 7.1 for these tasks
   - Repeat until all tasks reach "ReadyForDevelopment"
 
 ## 7.6 - Verification
-- Call `mcp__task-review-manager__get_tasks_by_status` with status "ReadyForDevelopment"
+- Call `mcp__aiconductor__get_tasks_by_status` with status "ReadyForDevelopment"
 - Confirm all tasks created in Step 6 are now in "ReadyForDevelopment" status
 - If verification fails, report which tasks are stuck and why
 
@@ -177,8 +177,8 @@ No file must be created for this workflow. All outputs should be returned in the
 - Combine all acceptance criteria into a single text block
 - Combine all test scenarios into a single text block
 - If using Jira integration: Update the Jira ticket with final AC and test scenarios
-- **[NEW - Rec 3]** Call `mcp__task-review-manager__save_workflow_checkpoint` with description "All tasks ReadyForDevelopment - ready for dev workflow"
-- **[NEW]** If the feature description has been refined or improved during the workflow (Steps 3-5 may have clarified the scope), call `mcp__task-review-manager__update_feature` with the final polished description so the dashboard Detail view shows accurate context
+- **[NEW - Rec 3]** Call `mcp__aiconductor__save_workflow_checkpoint` with description "All tasks ReadyForDevelopment - ready for dev workflow"
+- **[NEW]** If the feature description has been refined or improved during the workflow (Steps 3-5 may have clarified the scope), call `mcp__aiconductor__update_feature` with the final polished description so the dashboard Detail view shows accurate context
 - Present the final AC and test scenarios to the user
 - Confirm workflow completion
 

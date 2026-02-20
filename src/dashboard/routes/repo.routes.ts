@@ -2,9 +2,9 @@
  * Repository-related routes
  */
 import { Router, Request, Response } from 'express';
-import { TaskReviewManager } from '../../TaskReviewManager.js';
+import { AIConductor } from '../../AIConductor.js';
 
-export function createRepoRoutes(reviewManager: TaskReviewManager): Router {
+export function createRepoRoutes(reviewManager: AIConductor): Router {
   const router = Router();
 
   /**

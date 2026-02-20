@@ -2,9 +2,9 @@
  * Feature-related routes
  */
 import { Router, Request, Response } from 'express';
-import { TaskReviewManager } from '../../TaskReviewManager.js';
+import { AIConductor } from '../../AIConductor.js';
 
-export function createFeatureRoutes(reviewManager: TaskReviewManager): Router {
+export function createFeatureRoutes(reviewManager: AIConductor): Router {
   const router = Router();
 
   /**

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Entrypoint script for Task Review Manager MCP Server
+# Entrypoint script for AIConductor MCP Server
 # Note: the MCP server (bundle.js) starts the dashboard internally on port 5111
 
 # Start MCP server (stdio mode)

@@ -27,7 +27,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, sidebarCollapsed }) =>
         ☰
       </button>
       <span className={styles.topbarBrand}>
-        &#10097;&#10097; <span>Agent</span> Orchestration Console
+        &#10097;&#10097; <span>AI</span>Conductor
       </span>
       <div className={styles.topbarRight}>
         <div className={`${styles.liveDot} ${connected ? styles.active : ''}`} aria-hidden="true"></div>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Task Review Manager now includes a comprehensive WebSocket-based real-time notification and presence system. This guide covers architecture, setup, deployment, and troubleshooting.
+The AIConductor now includes a comprehensive WebSocket-based real-time notification and presence system. This guide covers architecture, setup, deployment, and troubleshooting.
 
 ## Architecture
 
@@ -191,7 +191,7 @@ services:
 {
   "type": "welcome",
   "connectionId": "conn_abc123",
-  "message": "Connected to Task Review Manager WebSocket server",
+  "message": "Connected to AIConductor WebSocket server",
   "timestamp": 1708344000000
 }
 
