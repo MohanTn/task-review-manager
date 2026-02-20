@@ -130,6 +130,10 @@ Each stage is handled by a distinct role: **Developer** (implements & tests), **
 
 Open **http://localhost:5111** in your browser.
 
+| Kanban Board | Feature Details |
+|:---:|:---:|
+| ![AIConductor Kanban Board](docs/screenshots/board-view.png) | ![AIConductor Feature Details](docs/screenshots/detail-view.png) |
+
 - **Kanban board** — Task cards arranged by workflow status; empty columns collapse to a slim strip so all columns fit on screen without horizontal scrolling
 - **Real-time updates** — WebSocket connection pushes task state changes instantly to all open browser tabs
 - **Detail panel** — Per-feature acceptance criteria, test scenarios, clarifications, and refinement step progress
