@@ -51,7 +51,8 @@
       "Bash(docker compose:*)",
       "Bash(python3:*)",
       "Bash(docker exec:*)",
-      "Bash(docker cp:*)"
+      "Bash(docker cp:*)",
+      "Bash(chmod:*)"
     ]
   },
   "spinnerTipsEnabled": false,
