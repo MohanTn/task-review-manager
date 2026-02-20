@@ -73,6 +73,19 @@ const Board: React.FC<BoardProps> = ({ tasks }) => {
         <div className={styles.board}>
           {COLUMNS.map(column => {
             const columnTasks = tasksByStatus[column.status] || [];
+            const isEmpty = columnTasks.length === 0;
+
+            if (isEmpty) {
+              return (
+                <div key={column.status} className={styles.columnCollapsed} role="list" aria-label={column.label} title={column.label}>
+                  <div className={styles.columnCollapsedHeader}>
+                    <span className={styles.columnCollapsedCount}>0</span>
+                    <span className={styles.columnCollapsedTitle}>{column.label}</span>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={column.status} className={styles.column} role="list" aria-label={column.label}>
                 <div className={styles.columnHeader}>

@@ -3,6 +3,11 @@
  *
  * Manages WebSocket connection lifecycle with exponential backoff reconnection.
  * Listens for task-status-changed and presence events.
+ *
+ * Callbacks are stored in refs so `connect` is created once on mount and never
+ * re-created on re-renders. Previously `connect` depended on the `options` object
+ * which is a new reference every render, causing the useEffect to disconnect and
+ * reconnect on every render, burning through the retry limit immediately.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -21,26 +26,48 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const backoffDelays = [1000, 2000, 4000, 8000]; // Exponential backoff
+  // Store callbacks in refs so `connect` doesn't need them as dependencies.
+  // This means the callbacks always call the latest version without causing
+  // connect/disconnect churn on every render.
+  const onMessageRef = useRef(options.onMessage);
+  const onConnectRef = useRef(options.onConnect);
+  const onDisconnectRef = useRef(options.onDisconnect);
+  const urlRef = useRef(options.url);
 
+  // Keep refs current without triggering re-connects
+  useEffect(() => {
+    onMessageRef.current = options.onMessage;
+    onConnectRef.current = options.onConnect;
+    onDisconnectRef.current = options.onDisconnect;
+    urlRef.current = options.url;
+  });
+
+  // connect is created ONCE on mount — no dependency on options
   const connect = useCallback(() => {
+    // Close any existing stale connection before opening a new one
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      wsRef.current.onclose = null; // prevent re-triggering reconnect
+      wsRef.current.close();
+    }
+
     try {
-      // Get auth token from httpOnly cookie (secure storage)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = options.url || `${protocol}//${window.location.host}`;
+      const baseUrl = urlRef.current || `${protocol}//${window.location.host}`;
 
-      console.log(`[WebSocket] Connecting to ${url}`);
+      // Browsers cannot send custom headers with the WebSocket constructor,
+      // so we pass the auth token as a query parameter instead.
+      const wsUrl = baseUrl.includes('?') ? `${baseUrl}&token=dashboard` : `${baseUrl}?token=dashboard`;
+      console.log(`[WebSocket] Connecting to ${wsUrl}`);
 
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
         console.log('[WebSocket] Connected');
         setConnected(true);
         setError(null);
         reconnectAttemptsRef.current = 0;
-        options.onConnect?.();
+        onConnectRef.current?.();
 
-        // Emit presence update on connect
         ws.send(JSON.stringify({
           type: 'presence-update',
           status: 'online',
@@ -51,9 +78,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          options.onMessage?.(message);
+          onMessageRef.current?.(message);
 
-          // Handle different message types
           if (message.type === 'welcome') {
             console.log(`[WebSocket] Welcome: ${message.connectionId}`);
           } else if (message.type === 'task-status-changed') {
@@ -64,42 +90,38 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
 
-      ws.onerror = (event) => {
-        console.error(`[WebSocket] Error: ${event}`);
+      ws.onerror = () => {
         setError('WebSocket error');
       };
 
       ws.onclose = () => {
         console.log('[WebSocket] Disconnected');
         setConnected(false);
-        options.onDisconnect?.();
+        onDisconnectRef.current?.();
         wsRef.current = null;
-
-        // Attempt reconnection with exponential backoff
-        attemptReconnect();
+        scheduleReconnect();
       };
 
       wsRef.current = ws;
     } catch (err) {
       console.error(`[WebSocket] Connection error: ${err}`);
       setError(`${err}`);
-      attemptReconnect();
+      scheduleReconnect();
     }
-  }, [options]);
+  }, []); // ← stable: no dependencies
 
-  const attemptReconnect = useCallback(() => {
-    if (reconnectAttemptsRef.current >= 3) {
-      setError('Connection lost. Click to retry.');
-      console.error('[WebSocket] Max reconnection attempts reached');
-      return;
-    }
+  // Unlimited retries with capped exponential backoff (max 30s)
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) return; // already scheduled
 
-    const delay = backoffDelays[reconnectAttemptsRef.current] || 8000;
-    reconnectAttemptsRef.current++;
+    const attempt = reconnectAttemptsRef.current;
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+    reconnectAttemptsRef.current += 1;
 
-    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current})`);
+    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${attempt + 1})`);
 
     reconnectTimeoutRef.current = setTimeout(() => {
+      reconnectTimeoutRef.current = null;
       connect();
     }, delay);
   }, [connect]);
@@ -107,9 +129,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
     if (wsRef.current) {
+      wsRef.current.onclose = null; // suppress auto-reconnect on manual disconnect
       wsRef.current.close();
+      wsRef.current = null;
     }
   }, []);
 
@@ -128,14 +153,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     });
   }, [send]);
 
-  // Connect on mount
+  // Connect exactly once on mount; clean up on unmount
   useEffect(() => {
     connect();
-
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     connected,

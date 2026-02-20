@@ -1,268 +1,229 @@
-# Task Review Manager — MCP Server
+# Task Review Manager
 
-An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that orchestrates **feature refinement** and **development execution** through multi-stakeholder review workflows. Built for AI-assisted software teams that want structured, auditable task pipelines — from idea to merged code.
+> An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that orchestrates multi-stakeholder feature refinement and development execution workflows for AI-assisted software teams.
 
-## 🎯 Key Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178C6?logo=typescript&logoColor=white)](tsconfig.json)
 
-- **🐳 Docker-based with Shared Database** — Single SQLite instance shared across all VS Code/Claude Desktop instances
-- **🔄 Multi-Repository Support** — Manage tasks across multiple codebases from any editor
-- **👥 Multi-Stakeholder Reviews** — Product Director → Architect → Lead → CFO → CSO approval chain
-- **📊 Real-time Dashboard** — Web UI with auto-refresh and repository switching
-- **✅ Development Workflow** — Developer → Code Reviewer → QA → Done lifecycle
-- **💾 No External Dependencies** — Everything stored in local SQLite
+---
 
-## What It Does
+## Overview
 
-Task Review Manager gives your AI coding agent (Claude Code, Copilot, Cursor, etc.) a set of tools to:
+Task Review Manager gives your AI coding agent a structured, auditable pipeline — from raw feature idea to merged code. It exposes **39 MCP tools** that any MCP-compatible agent (Claude, Copilot, Cursor, Cline, etc.) can call to drive tasks through two workflows:
 
-1. **Refine features** — Break down a feature into discrete tasks, then run each task through a sequential stakeholder review (Product Director → Architect → Lead Engineer → CFO → CSO) before any code is written.
-2. **Execute development** — Drive each approved task through a Developer → Code Reviewer → QA pipeline with automatic state transitions, acceptance criteria tracking, and full audit history.
-3. **Track progress** — Query task status, filter by workflow stage, and view a real-time web dashboard.
+1. **Feature Refinement** — Break a feature into discrete tasks, then route each task through a sequential stakeholder approval chain before any code is written.
+2. **Development Execution** — Drive approved tasks through a Developer → Code Reviewer → QA lifecycle with full audit history.
+
+## Features
+
+| | |
+|---|---|
+| **Multi-Stakeholder Reviews** | Product Director → Architect → UI/UX Expert → Security Officer approval chain |
+| **Development Pipeline** | Developer → Code Reviewer → QA → Done with `NeedsChanges` feedback loops |
+| **Real-time Dashboard** | Kanban board at `localhost:5111` with live WebSocket updates |
+| **Multi-Repository** | Manage tasks across multiple codebases from a single server |
+| **Refinement Reports** | Generate markdown/HTML/JSON reports of the full refinement process |
+| **Workflow Checkpoints** | Save and restore workflow state; rollback the last stakeholder decision |
+| **Task Execution Planning** | Dependency analysis with parallelisation suggestions |
+| **Zero External Dependencies** | Everything persisted in a local SQLite database |
+
+---
+
+## Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- An MCP-compatible AI agent (Claude Desktop, VS Code Copilot, Cursor, Cline, etc.)
 
 ---
 
 ## Quick Start
 
-### 1. Prerequisites
-
-- **Docker Desktop** installed and running ([Download here](https://www.docker.com/products/docker-desktop))
-  - For Windows: Docker Desktop with WSL2 backend recommended
-  - For Mac: Docker Desktop for Mac
-  - For Linux: Docker Engine and Docker Compose
-- VS Code or Claude Desktop with MCP support
-
-**Verify Docker is installed:**
-
-```bash
-docker --version
-docker compose version
-```
-
-### 2. Build and Start the Docker Container
-
 ```bash
 git clone https://github.com/your-org/task-review-manager.git
 cd task-review-manager
-
-# Build and start the container
-docker-compose up -d
+docker compose up -d
 ```
 
-This creates a **shared SQLite database** in a Docker volume, ensuring all VS Code/Claude Desktop instances use the same database.
+The MCP server and dashboard are now running. Connect your AI agent by adding the following to your MCP config:
 
-Verify the container is running:
-
-```bash
-docker ps | grep task-review-manager-mcp
-```
-
-### 3. Connect to your AI agent
-
-Add the server to your MCP client config. For **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on Mac or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+**Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "task-review-manager": {
       "command": "docker",
-      "args": [
-        "exec",
-        "-i",
-        "task-review-manager-mcp",
-        "node",
-        "dist/bundle.js"
-      ]
+      "args": ["exec", "-i", "task-review-manager-mcp", "node", "dist/bundle.js"]
     }
   }
 }
 ```
 
-For **VS Code with Cline/Continue** (`.vscode/settings.json` or global settings):
+**VS Code** — `.vscode/mcp.json` or user settings
 
 ```json
 {
   "mcp.servers": {
     "task-review-manager": {
       "command": "docker",
-      "args": [
-        "exec",
-        "-i",
-        "task-review-manager-mcp",
-        "node",
-        "dist/bundle.js"
-      ]
+      "args": ["exec", "-i", "task-review-manager-mcp", "node", "dist/bundle.js"]
     }
   }
 }
 ```
 
-Restart your AI agent. The tools will be available immediately.
-
-### 4. Use the workflows
-
-The server ships with two prompt workflows you can invoke as slash commands:
-
-| Command | What it does |
-|---|---|
-| `/refine-feature` | Takes a feature description, breaks it into tasks, and runs stakeholder reviews |
-| `/dev-workflow` | Takes an approved feature slug, implements each task through dev → review → QA → done |
-
-Or call any of the 12 MCP tools directly from your agent.
+Restart your agent. Open the dashboard at **http://localhost:5111**.
 
 ---
 
-## Docker Management
+## Workflows
 
-### Shared Database
+Two slash-command workflows are included in `.github/prompts/` and can be invoked directly from your agent.
 
-The Docker setup uses a named volume (`task-review-data`) to persist the SQLite database. This ensures:
-- **Single source of truth** — All VS Code/Claude Desktop instances share the same database
-- **Data persistence** — Database survives container restarts
-- **Multi-repo support** — Manage multiple repositories from any IDE instance
+### `/refine-feature` — Feature Refinement
 
-### Common Commands
-
-```bash
-# Start the container
-docker compose up -d
-
-# Stop the container
-docker compose down
-
-# View logs
-docker logs task-review-manager-mcp
-
-# Rebuild after code changes
-docker compose up -d --build
-
-# Access the database directly
-docker exec -it task-review-manager-mcp sqlite3 /data/tasks.db
-
-# Backup the database
-docker cp task-review-manager-mcp:/data/tasks.db ./tasks-backup.db
-
-# Restore the database
-docker cp ./tasks-backup.db task-review-manager-mcp:/data/tasks.db
-```
-
-### Accessing the Dashboard
-
-The dashboard runs on **port 5111** and is accessible via the Docker container:
-
-**Option 1: Using exposed port (default in docker-compose.yml)**
-
-Simply open **http://localhost:5111** in your browser. The dashboard is automatically available when the container is running.
-
-**Option 2: Run dashboard manually inside container**
-
-```bash
-docker exec -d task-review-manager-mcp node dist/dashboard.js
-```
-
-The dashboard shows:
-- Task status overview with completion tracking
-- Color-coded status indicators
-- Repository selector (switch between repos)
-- Filter tasks by status
-- Auto-refresh every 5 seconds
-
-For local development (non-Docker):
-
-```bash
-npm run dashboard
-```
-
----
-
-## How It Works
-
-### The Two Workflows
-
-#### Workflow 1: Feature Refinement (`/refine-feature`)
-
-Turn a feature idea into stakeholder-approved, implementation-ready tasks.
+Turns a plain-text feature description into stakeholder-approved, implementation-ready tasks.
 
 ```
-Feature Idea
+Feature Description
   │
-  ├─ 1. Determine scope (enhancement / bug fix / refinement)
-  ├─ 2. Analyze attachments (Excel, images, docs)
-  ├─ 3. Clarify ambiguities with the user
-  ├─ 4. Generate SMART acceptance criteria
-  ├─ 5. Generate test scenarios
-  ├─ 6. Break into 5-8 discrete tasks
+  ├─ Scope determination & context gathering
+  ├─ Attachment analysis (images, docs, spreadsheets)
+  ├─ Clarification questions
+  ├─ SMART acceptance criteria generation
+  ├─ Test scenario generation
+  ├─ Task breakdown (5–8 tasks)
   │
-  └─ 7. Stakeholder Review Cycle (per task)
+  └─ Batched stakeholder review cycle
        │
-       │  ┌─ Product Director ──approve──→ Architect ──approve──→ Lead Engineer ──approve──→ CFO ──approve──→ CSO ──approve──→ Ready ✓
-       │  │         │                         │                         │                      │                   │
-       │  │      reject                    reject                   reject                  reject              reject
-       │  │         └─────────────────────────┴─────────────────────────┴──────────────────────┴───────────────────┘
-       │  │                                              ▼
-       │  │                                      NeedsRefinement (restart from Product Director)
-       │  └──────────────────────────────────────────────┘
+       ├─ Product Director  →  Architect  →  UI/UX Expert  →  Security Officer
+       │        │                  │               │                  │
+       │     reject             reject          reject             reject
+       │        └──────────────────┴───────────────┴──────────────────┘
+       │                                  ▼
+       │                         NeedsRefinement → restart
        │
-       └─ All tasks reach "ReadyForDevelopment"
+       └─ All tasks reach ReadyForDevelopment ✓
 ```
 
-Each stakeholder reviews with role-specific focus areas (market fit, architecture, resource planning, budget, security) and can approve or reject.
+Tasks are processed in **batches per role** — a single role adoption covers all tasks in one pass, dramatically reducing context overhead.
 
-#### Workflow 2: Development Execution (`/dev-workflow`)
+### `/dev-workflow` — Development Execution
 
-Take approved tasks and drive them through implementation.
+Drives `ReadyForDevelopment` tasks through implementation to `Done`.
 
 ```
 ReadyForDevelopment
-  └──→ ToDo ──→ InProgress ──→ InReview ──→ InQA ──→ Done ✓
-                     │              │           │
-                     └──────────────┴───────────┘
-                           NeedsChanges (loop back to InProgress)
+  └─→ InProgress ─→ InReview ─→ InQA ─→ Done ✓
+           │             │          │
+           └─────────────┴──────────┘
+                    NeedsChanges → back to InProgress
 ```
 
-For each task the agent adopts three roles sequentially:
-- **Developer** — Implements the feature, writes tests, submits for review
-- **Code Reviewer** — Reviews code quality, approves or requests changes
-- **QA** — Runs test scenarios, verifies acceptance criteria, marks done or flags bugs
-
----
-
-## Available MCP Tools
-
-| Tool | Description |
-|---|---|
-| `create_feature` | Create a new feature entry in the database |
-| `add_task` | Add a task to a feature |
-| `get_feature` | Load complete feature data with all tasks |
-| `add_stakeholder_review` | Submit a stakeholder review (approve/reject) with role-specific fields |
-| `get_task_status` | Get current status, completed/pending reviews, allowed transitions |
-| `get_review_summary` | Completion percentage, stakeholder progress across all tasks |
-| `validate_workflow` | Dry-run validation — check if a review can proceed |
-| `transition_task_status` | Move a task through development stages (ToDo → InProgress → Done) |
-| `get_next_task` | Get the next task to work on, optionally filtered by status |
-| `get_next_step` | Get the next role and instructions for a task (drives the orchestration loop) |
-| `update_task` | Modify task properties (title, description, acceptance criteria, etc.) |
-| `delete_task` | Remove a task and all associated data |
-| `update_acceptance_criteria` | Mark acceptance criteria as verified |
-| `get_tasks_by_status` | List all tasks with a specific status |
-| `verify_all_tasks_complete` | Check if every task in a feature is Done |
+Each stage is handled by a distinct role: **Developer** (implements & tests), **Code Reviewer** (approves or requests changes), **QA** (verifies acceptance criteria).
 
 ---
 
 ## Dashboard
 
-The server starts a web dashboard on **port 5111** automatically when you run `npm start`.
+Open **http://localhost:5111** in your browser.
 
-Open **http://localhost:5111** to see:
-- Task status overview with completion tracking
-- Color-coded status indicators
-- Filter tasks by status
-- Auto-refresh every 5 seconds
+- **Kanban board** — Task cards arranged by workflow status; empty columns collapse to a slim strip so all columns fit on screen without horizontal scrolling
+- **Real-time updates** — WebSocket connection pushes task state changes instantly to all open browser tabs
+- **Detail panel** — Per-feature acceptance criteria, test scenarios, clarifications, and refinement step progress
+- **Multi-repo switcher** — Switch between registered repositories from the sidebar
+- **Reviewer presence** — See which reviewers are currently active on a feature
 
-Run the dashboard standalone:
+---
 
-```bash
-npm run dashboard
-```
+## MCP Tools Reference
+
+### Orchestration
+
+| Tool | Description |
+|---|---|
+| `get_next_step` | Returns the next role, system prompt, and required output fields for a task — the primary orchestration driver |
+| `get_workflow_snapshot` | Compressed overview of all task statuses and roles for a feature (~5 KB vs ~50 KB for full fetch) |
+| `get_task_execution_plan` | Dependency analysis with optimal execution order and parallelisable phases |
+| `get_similar_tasks` | Find comparable tasks from past features to aid estimation |
+| `get_workflow_metrics` | Cycle time, throughput, and bottleneck statistics |
+
+### Stakeholder Reviews
+
+| Tool | Description |
+|---|---|
+| `add_stakeholder_review` | Submit an approve/reject review with role-specific structured fields |
+| `validate_review_completeness` | Pre-flight check that all required fields are present before submitting |
+| `get_task_status` | Current status, completed/pending reviews, and allowed transitions |
+| `get_review_summary` | Completion percentage and stakeholder progress across all tasks |
+| `validate_workflow` | Dry-run validation — check if a transition can proceed |
+| `rollback_last_decision` | Undo the most recent stakeholder decision on a task |
+
+### Development Pipeline
+
+| Tool | Description |
+|---|---|
+| `transition_task_status` | Move a task through development stages (InProgress → InReview → InQA → Done) |
+| `batch_transition_tasks` | Transition multiple tasks atomically in a single call |
+| `get_next_task` | Get the next task to work on, optionally filtered by status |
+| `get_tasks_by_status` | List all tasks matching a specific status |
+| `verify_all_tasks_complete` | Assert every task in a feature has reached Done |
+| `update_acceptance_criteria` | Mark individual acceptance criteria as verified |
+| `batch_update_acceptance_criteria` | Verify multiple criteria in one call |
+
+### Feature & Task Management
+
+| Tool | Description |
+|---|---|
+| `create_feature` | Create a new feature with slug, name, and description |
+| `update_feature` | Update feature metadata (name, description) |
+| `get_feature` | Load full feature data including all tasks, criteria, and scenarios |
+| `list_features` | List all features in a repository with task counts |
+| `delete_feature` | Remove a feature and all associated tasks, reviews, and transitions |
+| `add_task` | Add a task to a feature with acceptance criteria and test scenarios |
+| `update_task` | Modify task properties (title, description, criteria, scenarios, dependencies) |
+| `delete_task` | Remove a task and all its data |
+
+### Refinement Tracking
+
+| Tool | Description |
+|---|---|
+| `update_refinement_step` | Record progress through the 8-step refinement workflow |
+| `get_refinement_status` | Full refinement progress including step completion and criteria |
+| `add_feature_acceptance_criteria` | Add feature-level acceptance criteria (before tasks are created) |
+| `add_feature_test_scenarios` | Add feature-level test scenarios |
+| `add_clarification` | Record a clarification question and answer |
+| `add_attachment_analysis` | Store analysis results for an attached file or design |
+| `generate_refinement_report` | Export the full refinement process as markdown, HTML, or JSON |
+
+### Checkpoint Management
+
+| Tool | Description |
+|---|---|
+| `save_workflow_checkpoint` | Save current workflow state with a description |
+| `list_workflow_checkpoints` | List all saved checkpoints for a feature |
+| `restore_workflow_checkpoint` | Resume from a previously saved checkpoint |
+
+### Repository Management
+
+| Tool | Description |
+|---|---|
+| `register_repo` | Register a new repository namespace |
+| `list_repos` | List all registered repositories with task counts |
+| `get_current_repo` | Auto-detect the repository from the current working directory |
+
+---
+
+## Stakeholder Roles
+
+| Role | Focus Areas | Key Output Fields |
+|---|---|---|
+| **Product Director** | Market fit, user value, acceptance criteria quality | `marketAnalysis`, `competitorAnalysis`, `quickSummary` |
+| **Architect** | Technical feasibility, design patterns, technology choices | `technologyRecommendations`, `designPatterns` |
+| **UI/UX Expert** | Usability, accessibility, user behaviour | `usabilityFindings`, `accessibilityRequirements`, `userBehaviorInsights` |
+| **Security Officer** | Security requirements, compliance, risk assessment | `securityRequirements`, `complianceNotes` |
 
 ---
 
@@ -270,143 +231,57 @@ npm run dashboard
 
 ```
 src/
-├── index.ts                 # MCP server entry point & tool definitions
-├── TaskReviewManager.ts     # Core business logic
-├── WorkflowValidator.ts     # State machine & transition rules
-├── DatabaseHandler.ts       # SQLite operations
-├── rolePrompts.ts           # Stakeholder role prompts for get_next_step
-├── dashboard.ts             # Express web dashboard
+├── index.ts                 # MCP server — tool definitions and request handling
+├── TaskReviewManager.ts     # Business logic for all workflow operations
+├── WorkflowValidator.ts     # State machine — validates transitions and returns role prompts
+├── DatabaseHandler.ts       # SQLite CRUD operations
+├── rolePrompts.ts           # System prompts for each stakeholder role
+├── websocket.ts             # WebSocket server — real-time event broadcasting
+├── dashboard.ts             # Express web server (port 5111)
 ├── types.ts                 # TypeScript interfaces
-├── migrate.ts               # JSON → SQLite migration utility
-└── JsonFileHandler.ts       # Legacy file handler (migration only)
+└── client/                  # React SPA (Vite)
 
 .github/prompts/
-├── refine-feature.prompt.md # Refinement workflow prompt
-└── dev-workflow.prompt.md   # Development workflow prompt
-
-Docker files:
-├── Dockerfile               # Container image definition
-├── docker-compose.yml       # Container orchestration
-└── .dockerignore           # Build optimization
+├── refine-feature.prompt.md # Feature refinement workflow
+└── dev-workflow.prompt.md   # Development execution workflow
 ```
 
-**Storage:** 
-- **Docker:** SQLite database at `/data/tasks.db` (persistent volume `task-review-data`)
-- **Local:** SQLite database at `./tasks.db` in workspace root
+**Database:**
+- Docker: `/data/tasks.db` (persistent volume `task-review-data`)
+- Local: `./tasks.db` in project root
+
+---
+
+## Local Development
+
+```bash
+npm install
+npm run dev          # Watch mode — recompiles on change
+npm run build        # Production build (server + client)
+npm test             # Run all tests
+npm run lint         # TypeScript lint
+npm run dashboard    # Start dashboard standalone (port 5111)
+```
+
+To rebuild the Docker image after code changes:
+
+```bash
+docker compose up -d --build
+```
 
 ---
 
 ## Configuration
 
-### Environment Variables
-
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_PATH` | `./tasks.db` | SQLite database location (set to `/data/tasks.db` in Docker) |
-| Dashboard port | `5111` | Web dashboard port |
+| `DATABASE_PATH` | `./tasks.db` | SQLite file location (`/data/tasks.db` in Docker) |
 
-### Docker Volume
-
-The Docker setup uses a named volume for persistent storage:
-
-```yaml
-volumes:
-  task-review-data:  # Stores /data/tasks.db
-```
-
-To reset the database, remove the volume:
+To reset all data:
 
 ```bash
-docker compose down -v
-docker compose up -d
+docker compose down -v && docker compose up -d
 ```
-
-### Migrating from JSON files
-
-If you have existing `task.json` files from a previous version:
-
-```bash
-npm run migrate
-```
-
-This scans `.github/artifacts/*/task.json` and imports all features into the SQLite database.
-
----
-
-## Development
-
-### Docker Development
-
-```bash
-# Rebuild container after code changes
-docker-compose up -d --build
-
-# View real-time logs
-docker logs -f task-review-manager-mcp
-
-# Run tests inside container
-docker exec -it task-review-manager-mcp npm test
-
-# Access container shell
-docker exec -it task-review-manager-mcp sh
-```
-
-### Local Development (Non-Docker)
-
-If you prefer to develop without Docker:
-
-```bash
-# Install dependencies
-npm install
-
-# Watch mode with auto-recompile
-npm run dev
-
-# Production build
-npm run build
-
-# Run tests
-npm test
-
-# Lint TypeScript
-npm run lint
-
-# Start local MCP server (uses ./tasks.db)
-npm start
-
-# Run dashboard
-npm run dashboard
-```
-
-**Note:** Local development creates a separate `tasks.db` file in your project directory, which won't be shared with Docker instances.
-
----
-
-## Stakeholder Roles
-
-Each stakeholder in the review chain has a specific focus:
-
-| Role | Focus Areas |
-|---|---|
-| **Product Director** | Market fit, user value, priority, acceptance criteria quality |
-| **Architect** | Technical feasibility, design patterns, technology recommendations |
-| **Lead Engineer** | Resource planning, implementation phases, effort estimation |
-| **CFO** | Budget impact, cost-benefit analysis, resource allocation |
-| **CSO** | Security requirements, compliance, risk assessment |
-
-Roles can add structured fields to their reviews (e.g., `technologyRecommendations[]`, `securityRequirements[]`, `marketAnalysis`).
-
----
-
-## Actor Permissions (Development Workflow)
-
-| Actor | Allowed Transitions |
-|---|---|
-| `developer` | ToDo → InProgress, InProgress → InReview, NeedsChanges → InProgress |
-| `reviewer` | InReview → InQA, InReview → NeedsChanges |
-| `qa` | InQA → Done, InQA → NeedsChanges |
-| `stakeholder` | ReadyForDevelopment → PendingCFO, PendingCFO → ToDo |
-| `system` | Any transition |
 
 ---
 
