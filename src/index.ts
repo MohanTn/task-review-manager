@@ -1856,8 +1856,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
-  // Start dashboard server on port 5111
-  startDashboard(5111);
+  // Start dashboard server on port 5111 only if not running as MCP client connection.
+  // When Claude Code connects via `docker exec`, it spawns a new process inside the
+  // container where port 5111 is already in use by the container's main process.
+  // Set DISABLE_DASHBOARD=true to skip dashboard startup in that case.
+  if (process.env.DISABLE_DASHBOARD !== 'true') {
+    startDashboard(5111);
+  }
 
   // Start MCP server on stdio
   const transport = new StdioServerTransport();

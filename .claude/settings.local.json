@@ -39,7 +39,21 @@
       "mcp__task-review-manager__get_tasks_by_status",
       "mcp__task-review-manager__save_workflow_checkpoint",
       "mcp__task-review-manager__get_workflow_snapshot",
-      "mcp__task-review-manager__get_workflow_metrics"
+      "mcp__task-review-manager__get_workflow_metrics",
+      "mcp__task-review-manager__list_repos",
+      "mcp__task-review-manager__validate_review_completeness",
+      "Bash(npx jest:*)",
+      "Bash(git stash:*)",
+      "mcp__task-review-manager__batch_update_acceptance_criteria",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(python3:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker cp:*)"
     ]
-  }
+  },
+  "spinnerTipsEnabled": false,
+  "prefersReducedMotion": true
 }

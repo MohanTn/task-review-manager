@@ -12,7 +12,6 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY tsconfig.client.json ./
 COPY tsconfig.node.json ./
-COPY build.js ./
 COPY jest.config.js ./
 COPY vite.config.ts ./
 
