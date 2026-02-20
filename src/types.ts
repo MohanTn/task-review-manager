@@ -399,9 +399,24 @@ export interface CreateFeatureInput {
   repoName: string;
   featureSlug: string;
   featureName: string;
+  description?: string;
 }
 
 export interface CreateFeatureResult {
+  success: boolean;
+  featureSlug: string;
+  message?: string;
+  error?: string;
+}
+
+export interface UpdateFeatureInput {
+  repoName: string;
+  featureSlug: string;
+  featureName?: string;
+  description?: string;
+}
+
+export interface UpdateFeatureResult {
   success: boolean;
   featureSlug: string;
   message?: string;

@@ -58,12 +58,15 @@ const MainContent: React.FC = () => {
       setFeatureTitle(summary.featureTitle || currentFeatureSlug);
       setCurrentTasks(summary.tasks || []);
 
-      // Merge feature with details (AC and test scenarios)
+      // Merge feature with details (AC, test scenarios, clarifications, steps, attachments)
       const featureWithDetails = {
         ...feature,
         acceptanceCriteria: details?.acceptanceCriteria || [],
         testScenarios: details?.testScenarios || [],
-        description: details?.feature?.featureName || feature.description || ''
+        description: details?.feature?.description || feature.description || '',
+        clarifications: details?.clarifications || [],
+        refinementSteps: details?.refinementSteps || [],
+        attachments: details?.attachments || [],
       };
       setCurrentFeature(featureWithDetails);
       setShowEmpty(false);

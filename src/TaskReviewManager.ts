@@ -26,6 +26,8 @@ import {
   VerifyAllTasksCompleteResult,
   CreateFeatureInput,
   CreateFeatureResult,
+  UpdateFeatureInput,
+  UpdateFeatureResult,
   AddTaskInput,
   AddTaskResult,
   ListFeaturesResult,
@@ -795,15 +797,45 @@ export class TaskReviewManager {
    */
   async createFeature(input: CreateFeatureInput): Promise<CreateFeatureResult> {
     try {
-      this.dbHandler.createFeature(input.featureSlug, input.featureName, input.repoName);
-      
+      this.dbHandler.createFeature(input.featureSlug, input.featureName, input.repoName, input.description);
+
       // Initialize refinement steps (Steps 1-8)
       this.dbHandler.initializeRefinementSteps(input.repoName, input.featureSlug);
-      
+
       return {
         success: true,
         featureSlug: input.featureSlug,
         message: `Feature '${input.featureName}' created with slug '${input.featureSlug}' and 8 refinement steps initialized`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        featureSlug: input.featureSlug,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Update a feature's name and/or description
+   */
+  async updateFeature(input: UpdateFeatureInput): Promise<UpdateFeatureResult> {
+    try {
+      if (!input.featureName && input.description === undefined) {
+        return {
+          success: false,
+          featureSlug: input.featureSlug,
+          error: 'At least one of featureName or description must be provided',
+        };
+      }
+      this.dbHandler.updateFeature(input.featureSlug, input.repoName, {
+        featureName: input.featureName,
+        description: input.description,
+      });
+      return {
+        success: true,
+        featureSlug: input.featureSlug,
+        message: `Feature '${input.featureSlug}' updated successfully`,
       };
     } catch (error) {
       return {

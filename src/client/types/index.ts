@@ -55,6 +55,29 @@ export type StakeholderRole =
   | 'uiUxExpert'
   | 'securityOfficer';
 
+export interface Clarification {
+  id: number;
+  question: string;
+  answer?: string;
+  askedBy: 'llm' | 'user';
+  createdAt: string;
+}
+
+export interface RefinementStep {
+  stepNumber: number;
+  stepName: string;
+  completed: boolean;
+  completedAt?: string;
+  summary?: string;
+}
+
+export interface Attachment {
+  id: number;
+  attachmentName: string;
+  attachmentType: 'excel' | 'image' | 'document' | 'design';
+  analysisSummary: string;
+}
+
 export interface Feature {
   featureSlug: string;
   title: string;
@@ -65,6 +88,9 @@ export interface Feature {
   totalTasks?: number;
   acceptanceCriteria?: AcceptanceCriterion[];
   testScenarios?: TestScenario[];
+  clarifications?: Clarification[];
+  refinementSteps?: RefinementStep[];
+  attachments?: Attachment[];
 }
 
 export interface Repo {

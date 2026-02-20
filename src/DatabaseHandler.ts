@@ -250,11 +250,11 @@ export class DatabaseHandler {
       // Read and execute the migration
       const __dirname = path.dirname(new URL(import.meta.url).pathname);
       const migrationPath = path.join(__dirname, 'migrations', '001_add_multi_repo_support.sql');
-      
+
       try {
         const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
         this.db.exec(migrationSQL);
-        
+
         // Record that migration was applied
         this.db.prepare(`
           INSERT INTO _migrations (name, applied_at) VALUES (?, ?)
@@ -265,6 +265,22 @@ export class DatabaseHandler {
         console.warn('Migration file not found, applying inline migration...');
         this.applyMultiRepoMigrationInline();
       }
+    }
+
+    // Migration 002: Add description column to features table
+    const descriptionMigration = this.db.prepare(`
+      SELECT * FROM _migrations WHERE name = '002_add_feature_description'
+    `).get();
+
+    if (!descriptionMigration) {
+      try {
+        this.db.exec(`ALTER TABLE features ADD COLUMN description TEXT`);
+      } catch (e) {
+        // Column may already exist if DB was manually altered — safe to ignore
+      }
+      this.db.prepare(`
+        INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)
+      `).run('002_add_feature_description', new Date().toISOString());
     }
   }
 
@@ -741,23 +757,25 @@ export class DatabaseHandler {
   /**
    * Get all feature slugs
    */
-  getAllFeatures(repoName: string = 'default'): Array<{ featureSlug: string; featureName: string; lastModified: string; totalTasks: number }> {
+  getAllFeatures(repoName: string = 'default'): Array<{ featureSlug: string; featureName: string; description: string; lastModified: string; totalTasks: number }> {
     const rows = this.db.prepare(`
       SELECT
         f.feature_slug,
         f.feature_name,
+        f.description,
         f.last_modified,
         COUNT(t.id) as total_tasks
       FROM features f
       LEFT JOIN tasks t ON f.feature_slug = t.feature_slug AND f.repo_name = t.repo_name
       WHERE f.repo_name = ?
-      GROUP BY f.feature_slug, f.feature_name, f.last_modified
+      GROUP BY f.feature_slug, f.feature_name, f.description, f.last_modified
       ORDER BY f.last_modified DESC
     `).all(repoName) as any[];
 
     return rows.map(row => ({
       featureSlug: row.feature_slug,
       featureName: row.feature_name,
+      description: row.description || '',
       lastModified: row.last_modified,
       totalTasks: row.total_tasks
     }));
@@ -766,13 +784,45 @@ export class DatabaseHandler {
   /**
    * Create a new feature
    */
-  createFeature(featureSlug: string, featureName: string, repoName: string = 'default'): void {
+  createFeature(featureSlug: string, featureName: string, repoName: string = 'default', description?: string): void {
     const now = new Date().toISOString();
+    const cleanDescription = description ? description.replace(/\x00/g, '').trim().slice(0, 10000) : null;
 
     this.db.prepare(`
-      INSERT INTO features (repo_name, feature_slug, feature_name, created_at, last_modified)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(repoName, featureSlug, featureName, now, now);
+      INSERT INTO features (repo_name, feature_slug, feature_name, description, created_at, last_modified)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(repoName, featureSlug, featureName, cleanDescription, now, now);
+  }
+
+  /**
+   * Update a feature's name and/or description
+   */
+  updateFeature(featureSlug: string, repoName: string = 'default', updates: { featureName?: string; description?: string }): void {
+    const existing = this.db.prepare(
+      `SELECT feature_slug FROM features WHERE feature_slug = ? AND repo_name = ?`
+    ).get(featureSlug, repoName);
+    if (!existing) {
+      throw new Error(`Feature not found: ${featureSlug} in repo ${repoName}`);
+    }
+
+    const now = new Date().toISOString();
+    const fields: string[] = ['last_modified = ?'];
+    const values: any[] = [now];
+
+    if (updates.featureName !== undefined) {
+      fields.push('feature_name = ?');
+      values.push(updates.featureName);
+    }
+    if (updates.description !== undefined) {
+      const clean = updates.description.replace(/\x00/g, '').trim().slice(0, 10000);
+      fields.push('description = ?');
+      values.push(clean);
+    }
+
+    values.push(featureSlug, repoName);
+    this.db.prepare(
+      `UPDATE features SET ${fields.join(', ')} WHERE feature_slug = ? AND repo_name = ?`
+    ).run(...values);
   }
 
   /**

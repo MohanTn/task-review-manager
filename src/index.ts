@@ -332,7 +332,7 @@ const TOOLS = [
   {
     name: 'create_feature',
     description:
-      'Create a new feature. This is the first step before adding tasks. Creates a feature entry with a slug and display name.',
+      'Create a new feature. This is the first step before adding tasks. Creates a feature entry with a slug, display name, and optional description.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -348,8 +348,39 @@ const TOOLS = [
           type: 'string',
           description: 'Human-readable feature name (e.g., "Smart Strangle Engine")',
         },
+        description: {
+          type: 'string',
+          description: 'Plain-text description of the feature scope and objectives (max 10,000 chars)',
+        },
       },
       required: ['repoName', 'featureSlug', 'featureName'],
+    },
+  },
+  {
+    name: 'update_feature',
+    description:
+      'Update an existing feature\'s name and/or description. Use after create_feature to enrich the feature record as refinement progresses.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repoName: {
+          type: 'string',
+          description: 'Repository name',
+        },
+        featureSlug: {
+          type: 'string',
+          description: 'Feature slug to update',
+        },
+        featureName: {
+          type: 'string',
+          description: 'Updated human-readable feature name (optional)',
+        },
+        description: {
+          type: 'string',
+          description: 'Updated plain-text description of the feature scope and objectives (max 10,000 chars)',
+        },
+      },
+      required: ['repoName', 'featureSlug'],
     },
   },
   {
@@ -1299,6 +1330,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           featureName: args.featureName as string,
+          description: args.description as string | undefined,
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_feature': {
+        const result = await reviewManager.updateFeature({
+          repoName: args.repoName as string,
+          featureSlug: args.featureSlug as string,
+          featureName: args.featureName as string | undefined,
+          description: args.description as string | undefined,
         });
 
         return {
