@@ -68,6 +68,8 @@ No file must be created for this workflow. All outputs should be returned in the
   - Write comprehensive unit and integration tests
   - Document implementation approach
 - Once ALL tasks implemented:
+  - **[BUILD VERIFICATION]** Run the appropriate build command for the project's language and toolchain (e.g., `npm run build`, `mvn package`, `cargo build`, `go build`, `python -m py_compile`, etc.) — confirm it succeeds with zero errors before proceeding
+  - **[APP VERIFICATION]** Start the application using the appropriate run command for the project (e.g., `npm start`, `java -jar app.jar`, `./target/app`, `go run main.go`, `python app.py`, etc.) and confirm it starts and runs correctly without runtime errors; stop the process after confirming it is healthy
   - **[NEW - Rec 2]** Call `mcp__task-review-manager__batch_transition_tasks` to move ALL from InProgress → InReview in one call:
     - `taskIds`: All implemented task IDs
     - `fromStatus`: "InProgress"

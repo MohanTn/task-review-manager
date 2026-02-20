@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppState } from '../state/AppState';
 import { APIClient } from '../api/client';
 import { Repo } from '../types';
@@ -12,6 +12,23 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const { repos, setRepos, currentRepo, setCurrentRepo, currentFeatureSlug, setCurrentFeature, autoRefresh } = useAppState();
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set(['default']));
+
+  const handleDeleteRepo = useCallback(async (repoName: string) => {
+    await APIClient.deleteRepo(repoName);
+    if (currentRepo === repoName) {
+      setCurrentRepo('');
+      setCurrentFeature('');
+    }
+    await loadRepos();
+  }, [currentRepo]);
+
+  const handleDeleteFeature = useCallback(async (repoName: string, featureSlug: string) => {
+    await APIClient.deleteFeature(repoName, featureSlug);
+    if (currentRepo === repoName && currentFeatureSlug === featureSlug) {
+      setCurrentFeature('');
+    }
+    await loadRepos();
+  }, [currentRepo, currentFeatureSlug]);
 
   useEffect(() => {
     loadRepos();
@@ -99,6 +116,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
             onToggle={() => toggleRepo(repo.repoName)}
             onSelectFeature={(slug) => selectFeature(repo.repoName, slug)}
             activeSlug={currentRepo === repo.repoName ? currentFeatureSlug : ''}
+            onDeleteRepo={() => handleDeleteRepo(repo.repoName)}
+            onDeleteFeature={(slug) => handleDeleteFeature(repo.repoName, slug)}
           />
         ))}
       </div>

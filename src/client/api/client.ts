@@ -20,6 +20,10 @@ export class APIClient {
     return RepoAPI.registerRepo(repoName, description);
   }
 
+  static async deleteRepo(repoName: string): Promise<any> {
+    return RepoAPI.deleteRepo(repoName);
+  }
+
   // Re-export Feature Operations
   static async listFeatures(repoName: string = 'default'): Promise<Feature[]> {
     return FeatureAPI.listFeatures(repoName);

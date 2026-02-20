@@ -8,7 +8,8 @@
     "task-review-manager-mcp": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && npm run build:client",
+    "build": "tsc && npm run build:bundle && npm run build:client",
+    "build:bundle": "esbuild dist/index.js --bundle --format=esm --platform=node --outfile=dist/bundle.js --packages=external --banner:js='#!/usr/bin/env node'",
     "build:client": "vite build",
     "dev": "tsc --watch",
     "dev:client": "vite",

@@ -5,12 +5,12 @@ import styles from './TaskCard.module.css';
 
 interface TaskCardProps {
   task: Task;
+  onTaskClick?: (taskId: string) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onTaskClick }) => {
   const handleClick = () => {
-    // TODO: Open task details modal
-    console.log('Open task:', task.taskId);
+    onTaskClick?.(task.taskId);
   };
 
   return (

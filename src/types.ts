@@ -399,9 +399,24 @@ export interface CreateFeatureInput {
   repoName: string;
   featureSlug: string;
   featureName: string;
+  description?: string;
 }
 
 export interface CreateFeatureResult {
+  success: boolean;
+  featureSlug: string;
+  message?: string;
+  error?: string;
+}
+
+export interface UpdateFeatureInput {
+  repoName: string;
+  featureSlug: string;
+  featureName?: string;
+  description?: string;
+}
+
+export interface UpdateFeatureResult {
   success: boolean;
   featureSlug: string;
   message?: string;
@@ -446,6 +461,15 @@ export interface ListFeaturesResult {
 export interface DeleteFeatureResult {
   success: boolean;
   featureSlug: string;
+  message?: string;
+  error?: string;
+}
+
+export interface DeleteRepoResult {
+  success: boolean;
+  repoName: string;
+  featureCount?: number;
+  taskCount?: number;
   message?: string;
   error?: string;
 }

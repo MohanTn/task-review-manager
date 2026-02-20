@@ -138,6 +138,8 @@ Add your analysis as structured notes including securityRequirements and complia
 - Write tests first (unit + integration)
 - Implement the feature
 - Verify all tests pass
+- **Build Verification** - Run the appropriate build command for the project's language and toolchain (e.g., \`npm run build\`, \`mvn package\`, \`cargo build\`, \`go build\`, \`python -m py_compile\`, etc.) and confirm it succeeds with zero errors or warnings
+- **Application Verification** - Start the application using the appropriate run command for the project (e.g., \`npm start\`, \`java -jar app.jar\`, \`./target/app\`, \`go run main.go\`, \`python app.py\`, etc.) and confirm it starts and runs correctly without runtime errors; stop the process after confirming it is healthy
 - Transition task to InReview with a summary of files changed and tests written
 
 ## Required Output:

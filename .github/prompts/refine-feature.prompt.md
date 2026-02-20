@@ -12,6 +12,7 @@ No file must be created for this workflow. All outputs should be returned in the
 # Step 1 - Scope Determination & Initial Snapshot
 - Determine scope: feature enhancement, bug fix, or refinement
 - Gather context about the requirement
+- Compose a concise 2-5 sentence plain-text summary of the feature scope from the user's input — this will be saved as the feature description in the database
 - **[NEW - Rec 1]** Call `mcp__task-review-manager__get_workflow_snapshot` to view any prior work on this feature (for context efficiency)
 
 # Step 2 - Attachment Analysis
@@ -54,6 +55,9 @@ No file must be created for this workflow. All outputs should be returned in the
   - Define what is out of scope for this task
   - Set orderOfExecution (sequential numbering)
 - Use the MCP tool `mcp__task-review-manager__create_feature` to create the feature entry
+  - **Pass the `description` parameter** with the 2-5 sentence plain-text summary composed in Step 1
+  - The description must be the original user requirement text (condensed) — NOT a hallucinated value
+  - Example: `{ featureSlug: "...", featureName: "...", description: "...", repoName: "..." }`
 - Use the MCP tool `mcp__task-review-manager__add_task` for each task
 - Ensure each task is:
   - Independently testable
@@ -174,6 +178,7 @@ No file must be created for this workflow. All outputs should be returned in the
 - Combine all test scenarios into a single text block
 - If using Jira integration: Update the Jira ticket with final AC and test scenarios
 - **[NEW - Rec 3]** Call `mcp__task-review-manager__save_workflow_checkpoint` with description "All tasks ReadyForDevelopment - ready for dev workflow"
+- **[NEW]** If the feature description has been refined or improved during the workflow (Steps 3-5 may have clarified the scope), call `mcp__task-review-manager__update_feature` with the final polished description so the dashboard Detail view shows accurate context
 - Present the final AC and test scenarios to the user
 - Confirm workflow completion
 

@@ -60,6 +60,7 @@ export function createFeatureRoutes(reviewManager: TaskReviewManager): Router {
       const testScenarios = reviewManager['dbHandler'].getFeatureTestScenarios(repoName, featureSlug);
       const refinementSteps = reviewManager['dbHandler'].getRefinementSteps(repoName, featureSlug);
       const clarifications = reviewManager['dbHandler'].getClarifications(repoName, featureSlug);
+      const attachments = reviewManager['dbHandler'].getAttachments(repoName, featureSlug);
       const refinementStatus = reviewManager['dbHandler'].getRefinementStatus(repoName, featureSlug);
 
       // Get feature metadata from features list
@@ -76,6 +77,7 @@ export function createFeatureRoutes(reviewManager: TaskReviewManager): Router {
         feature: {
           featureSlug: feature.featureSlug,
           featureName: feature.featureName,
+          description: feature.description || '',
           lastModified: feature.lastModified,
           totalTasks: feature.totalTasks,
         },
@@ -83,6 +85,7 @@ export function createFeatureRoutes(reviewManager: TaskReviewManager): Router {
         testScenarios,
         refinementSteps,
         clarifications,
+        attachments: attachments || [],
         refinementStatus,
       });
     } catch (error) {
@@ -118,7 +121,7 @@ export function createFeatureRoutes(reviewManager: TaskReviewManager): Router {
         success: true,
         featureSlug: feature.featureSlug,
         title: feature.featureName,
-        description: '',
+        description: feature.description || '',
         repoName: repoName,
         createdAt: feature.lastModified || new Date().toISOString(),
         totalTasks: feature.totalTasks || 0,
