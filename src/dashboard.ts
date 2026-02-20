@@ -1,10 +1,13 @@
 /**
  * Dashboard Server - Web interface for viewing task progress in real-time
  * Includes WebSocket server for real-time updates (T01)
+ * Includes Cron Scanner and Queue Worker for automated dev (T07)
  */
 import express from 'express';
 import { AIConductor } from './AIConductor.js';
 import { wsManager } from './websocket.js';
+import { CronScanner } from './cron-scanner.js';
+import { QueueWorker } from './queue-worker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer } from 'http';
@@ -13,6 +16,7 @@ import { createFeatureRoutes } from './dashboard/routes/feature.routes.js';
 import { createTaskRoutes } from './dashboard/routes/task.routes.js';
 import { createRefinementRoutes } from './dashboard/routes/refinement.routes.js';
 import { createSettingsRoutes } from './dashboard/routes/settings.routes.js';
+import { createQueueRoutes } from './dashboard/routes/queue.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +45,7 @@ export function startDashboard(port: number = 5111) {
   app.use('/api', createTaskRoutes(reviewManager));
   app.use('/api', createRefinementRoutes(reviewManager));
   app.use('/api', createSettingsRoutes(reviewManager));
+  app.use('/api', createQueueRoutes(reviewManager));
 
   /**
    * Serve the dashboard HTML (for SPA routing)
@@ -64,6 +69,31 @@ export function startDashboard(port: number = 5111) {
 
   // Initialize WebSocket server (T01)
   wsManager.initialize(httpServer);
+
+  // ── Dev Queue: Cron Scanner + Worker (T07) ───────────────────────
+  const cronScanner = new CronScanner(reviewManager);
+  const queueWorker = new QueueWorker(reviewManager);
+
+  // Auto-start if workerEnabled is already true in settings
+  const queueSettings = reviewManager.getQueueSettings();
+  if (queueSettings.workerEnabled) {
+    cronScanner.start();
+    queueWorker.start();
+  }
+
+  // Expose a method so the settings PUT route can toggle at runtime
+  (app as any)._cronScanner = cronScanner;
+  (app as any)._queueWorker = queueWorker;
+
+  // Health check endpoint for queue status
+  app.get('/api/queue/health', (_req, res) => {
+    res.json({
+      success: true,
+      cronRunning: cronScanner.isRunning,
+      workerRunning: queueWorker.isRunning,
+      workerBusy: queueWorker.isBusy,
+    });
+  });
 
   // Note: Task status change events will be broadcast via WebSocket
   // when implemented in AIConductor (T04)
@@ -96,6 +126,26 @@ export function startDashboard(port: number = 5111) {
   // Expose servers on app for test cleanup
   (app as any)._server = httpServer;
   (app as any)._wsManager = wsManager;
+
+  // ── Graceful shutdown (T07) ──────────────────────────────────────
+  const gracefulShutdown = (signal: string) => {
+    console.error(`\n[Dashboard] Received ${signal} — shutting down gracefully…`);
+    queueWorker.stop();
+    cronScanner.stop();
+    wsManager.shutdown();
+    httpServer.close(() => {
+      console.error('[Dashboard] Server closed');
+      process.exit(0);
+    });
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      console.error('[Dashboard] Forced exit after timeout');
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   return app;
 }

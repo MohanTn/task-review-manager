@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SettingsAPI, RolePromptConfig } from '../api/settings.api.js';
+import { SettingsAPI, RolePromptConfig, QueueSettings } from '../api/settings.api.js';
 import styles from './SettingsPage.module.css';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -42,11 +42,29 @@ const SettingsPage: React.FC = () => {
   const [editStates, setEditStates] = useState<Record<string, EditState>>({});
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
 
+  // Queue settings state
+  const [queueSettings, setQueueSettings] = useState<QueueSettings>({
+    cronIntervalSeconds: 60,
+    baseReposFolder: '',
+    cliTool: 'claude',
+    workerEnabled: false,
+  });
+  const [queueDraft, setQueueDraft] = useState<QueueSettings>({
+    cronIntervalSeconds: 60,
+    baseReposFolder: '',
+    cliTool: 'claude',
+    workerEnabled: false,
+  });
+  const [queueSaveState, setQueueSaveState] = useState<SaveState>({ status: 'idle' });
+
   const loadPrompts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await SettingsAPI.getAllRolePrompts();
+      const [data, qSettings] = await Promise.all([
+        SettingsAPI.getAllRolePrompts(),
+        SettingsAPI.getQueueSettings(),
+      ]);
       const sorted = ROLE_ORDER
         .map(id => data.find(p => p.roleId === id))
         .filter(Boolean) as RolePromptConfig[];
@@ -58,6 +76,10 @@ const SettingsPage: React.FC = () => {
         initialEdits[p.roleId] = promptToEditState(p);
       }
       setEditStates(initialEdits);
+
+      // Initialise queue settings
+      setQueueSettings(qSettings);
+      setQueueDraft(qSettings);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -137,6 +159,28 @@ const SettingsPage: React.FC = () => {
   const toggleExpanded = (roleId: string) => {
     setExpanded(prev => (prev === roleId ? null : roleId));
   };
+
+  const saveQueueSettings = async () => {
+    setQueueSaveState({ status: 'saving' });
+    try {
+      const updated = await SettingsAPI.updateQueueSettings(queueDraft);
+      setQueueSettings(updated);
+      setQueueDraft(updated);
+      setQueueSaveState({ status: 'success', message: 'Queue settings saved' });
+      setTimeout(() => setQueueSaveState({ status: 'idle' }), 3000);
+    } catch (err) {
+      setQueueSaveState({
+        status: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  const queueHasChanges =
+    queueDraft.cronIntervalSeconds !== queueSettings.cronIntervalSeconds ||
+    queueDraft.baseReposFolder !== queueSettings.baseReposFolder ||
+    queueDraft.cliTool !== queueSettings.cliTool ||
+    queueDraft.workerEnabled !== queueSettings.workerEnabled;
 
   if (loading) {
     return (
@@ -311,6 +355,125 @@ const SettingsPage: React.FC = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* ── Queue & Worker Configuration ── */}
+      <hr className={styles.sectionDivider} />
+
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Queue &amp; Worker Configuration</h2>
+        <p className={styles.sectionSubtitle}>
+          Configure the cron job interval, CLI tool, and base repository folder for the
+          automated development queue worker.
+        </p>
+      </div>
+
+      <div className={styles.queueCard}>
+        <div className={styles.queueGrid}>
+          {/* Worker Enabled */}
+          <div className={styles.queueField}>
+            <span className={styles.queueLabel}>Worker Enabled</span>
+            <div className={styles.toggleRow}>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  className={styles.toggleCheckbox}
+                  checked={queueDraft.workerEnabled}
+                  onChange={e => setQueueDraft(prev => ({ ...prev, workerEnabled: e.target.checked }))}
+                  disabled={queueSaveState.status === 'saving'}
+                  aria-label="Enable queue worker"
+                />
+                <span className={styles.toggleSlider} />
+              </label>
+              <span className={styles.toggleLabel}>
+                {queueDraft.workerEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+
+          {/* Cron Interval */}
+          <div className={styles.queueField}>
+            <label className={styles.queueLabel} htmlFor="cronInterval">
+              Cron Interval (seconds)
+            </label>
+            <span className={styles.queueHint}>How often the scanner checks for new tasks (30–3600)</span>
+            <input
+              id="cronInterval"
+              type="number"
+              className={styles.numberInput}
+              min={30}
+              max={3600}
+              step={1}
+              value={queueDraft.cronIntervalSeconds}
+              onChange={e => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val)) setQueueDraft(prev => ({ ...prev, cronIntervalSeconds: val }));
+              }}
+              disabled={queueSaveState.status === 'saving'}
+              aria-label="Cron interval in seconds"
+            />
+          </div>
+
+          {/* CLI Tool */}
+          <div className={styles.queueField}>
+            <label className={styles.queueLabel} htmlFor="cliTool">
+              CLI Tool
+            </label>
+            <span className={styles.queueHint}>
+              Which AI CLI to use for automated task execution
+            </span>
+            <select
+              id="cliTool"
+              className={styles.selectInput}
+              value={queueDraft.cliTool}
+              onChange={e => setQueueDraft(prev => ({ ...prev, cliTool: e.target.value as 'claude' | 'copilot' }))}
+              disabled={queueSaveState.status === 'saving'}
+              aria-label="CLI tool selection"
+            >
+              <option value="claude">Claude Code CLI</option>
+              <option value="copilot">Copilot CLI</option>
+            </select>
+          </div>
+
+          {/* Base Repos Folder */}
+          <div className={`${styles.queueField} ${styles.fullWidth}`}>
+            <label className={styles.queueLabel} htmlFor="baseReposFolder">
+              Base Repos Folder
+            </label>
+            <span className={styles.queueHint}>
+              Absolute path to the directory containing all repository checkouts (e.g. /home/user/repos)
+            </span>
+            <input
+              id="baseReposFolder"
+              type="text"
+              className={styles.input}
+              value={queueDraft.baseReposFolder}
+              onChange={e => setQueueDraft(prev => ({ ...prev, baseReposFolder: e.target.value }))}
+              placeholder="/home/user/repos"
+              disabled={queueSaveState.status === 'saving'}
+              aria-label="Base repositories folder path"
+            />
+          </div>
+        </div>
+
+        {/* Save button & feedback */}
+        <div className={styles.queueActions}>
+          <button
+            className={styles.saveBtn}
+            onClick={saveQueueSettings}
+            disabled={queueSaveState.status === 'saving' || !queueHasChanges}
+            aria-busy={queueSaveState.status === 'saving'}
+          >
+            {queueSaveState.status === 'saving' ? 'Saving…' : 'Save Queue Settings'}
+          </button>
+
+          {queueSaveState.status === 'success' && (
+            <span className={styles.successMsg} role="status">✓ {queueSaveState.message}</span>
+          )}
+          {queueSaveState.status === 'error' && (
+            <span className={styles.errorMsg} role="alert">✗ {queueSaveState.message}</span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -310,3 +310,199 @@
   color: var(--danger);
   font-weight: 600;
 }
+
+/* ── Section Divider ── */
+.sectionDivider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 32px 0 24px;
+  max-width: 900px;
+}
+
+/* ── Queue Settings Section ── */
+.sectionHeader {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.sectionSubtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.queueCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  max-width: 900px;
+}
+
+.queueGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .queueGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.queueField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.queueField.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.queueLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.queueHint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: -2px;
+}
+
+.numberInput {
+  width: 120px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 13px;
+  color: var(--text);
+  background: #fafbfc;
+  transition: border-color 0.15s;
+}
+
+.numberInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.numberInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selectInput {
+  width: 180px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 13px;
+  color: var(--text);
+  background: #fafbfc;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+
+.selectInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+.selectInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Toggle Switch ── */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggleCheckbox {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggleSlider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggleCheckbox:checked + .toggleSlider {
+  background: var(--primary);
+}
+
+.toggleCheckbox:checked + .toggleSlider::before {
+  transform: translateX(18px);
+}
+
+.toggleCheckbox:focus-visible + .toggleSlider {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.toggleCheckbox:disabled + .toggleSlider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggleLabel {
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* ── Queue Actions ── */
+.queueActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}

@@ -2311,6 +2311,51 @@ export class AIConductor {
   }
 
   // ─────────────────────────────────────────────────────────────────────
+  // Queue & Worker Settings
+  // ─────────────────────────────────────────────────────────────────────
+
+  /** Return queue-specific settings as a typed object. */
+  getQueueSettings(): { cronIntervalSeconds: number; baseReposFolder: string; cliTool: string; workerEnabled: boolean } {
+    return this.dbHandler.getQueueSettings();
+  }
+
+  /** Update one or more queue-specific settings. */
+  updateQueueSettings(updates: Partial<{ cronIntervalSeconds: number; baseReposFolder: string; cliTool: string; workerEnabled: boolean }>): void {
+    this.dbHandler.updateQueueSettings(updates);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Dev Queue Operations
+  // ─────────────────────────────────────────────────────────────────────
+
+  /** Enqueue a task for automated dev processing. */
+  enqueueTask(repoName: string, featureSlug: string, taskId: string, cliTool: string) {
+    return this.dbHandler.enqueueTask(repoName, featureSlug, taskId, cliTool);
+  }
+
+  /** Claim the next pending queue item for a worker. */
+  claimNextQueueItem(workerPid: number) {
+    return this.dbHandler.claimNextQueueItem(workerPid);
+  }
+
+  /** Mark a queue item as completed. */
+  completeQueueItem(id: number) { this.dbHandler.completeQueueItem(id); }
+
+  /** Mark a queue item as failed. */
+  failQueueItem(id: number, errorMessage: string) { this.dbHandler.failQueueItem(id, errorMessage); }
+
+  /** Get queue items, optionally filtered. */
+  getQueueItems(repoName?: string, featureSlug?: string, status?: string) {
+    return this.dbHandler.getQueueItems(repoName, featureSlug, status);
+  }
+
+  /** Get queue statistics. */
+  getQueueStats() { return this.dbHandler.getQueueStats(); }
+
+  /** Prune old completed/failed items. */
+  pruneQueueItems(olderThanDays?: number) { return this.dbHandler.pruneQueueItems(olderThanDays); }
+
+  // ─────────────────────────────────────────────────────────────────────
   // Role Prompt Settings
   // ─────────────────────────────────────────────────────────────────────
 

@@ -8,3 +8,5 @@ dist/
 coverage/
 *.tsbuildinfo
 *task-*.db
+test-*.db
+test-*.db/

@@ -8,6 +8,21 @@ import { TaskFile, Task, Transition, AcceptanceCriterion, TestScenario, Stakehol
 import { ROLE_SYSTEM_PROMPTS, RolePromptConfig } from './rolePrompts.js';
 import { PipelineRole } from './types.js';
 
+/** Row interface for the dev_queue table. */
+export interface DevQueueRow {
+  id: number;
+  repo_name: string;
+  feature_slug: string;
+  task_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  cli_tool: string;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  retry_count: number;
+  worker_pid: number | null;
+}
 export class DatabaseHandler {
   private db: Database.Database;
   private workspaceRoot: string;
@@ -30,6 +45,7 @@ export class DatabaseHandler {
     this.runMigrations();
     this.migrateOldRoles();
     this.seedRolePrompts();
+    this.seedDefaultSettings();
   }
 
   /**
@@ -194,6 +210,35 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_presence_expiry ON reviewer_presence(expires_at);
       CREATE INDEX IF NOT EXISTS idx_presence_status ON reviewer_presence(status);
 
+      -- Dev Queue table (T01: Automated Dev Queue)
+      CREATE TABLE IF NOT EXISTS dev_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repo_name TEXT NOT NULL,
+        feature_slug TEXT NOT NULL,
+        task_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK(status IN ('pending', 'running', 'completed', 'failed')),
+        cli_tool TEXT NOT NULL DEFAULT 'claude',
+        created_at TEXT NOT NULL,
+        started_at TEXT,
+        completed_at TEXT,
+        error_message TEXT,
+        retry_count INTEGER NOT NULL DEFAULT 0,
+        worker_pid INTEGER,
+        UNIQUE(repo_name, feature_slug, task_id, status)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_dev_queue_status ON dev_queue(status);
+      CREATE INDEX IF NOT EXISTS idx_dev_queue_repo_feature ON dev_queue(repo_name, feature_slug);
+      CREATE INDEX IF NOT EXISTS idx_dev_queue_composite ON dev_queue(repo_name, feature_slug, status);
+
+      -- Application Settings table (key-value store)
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
       -- Role Prompts table
       CREATE TABLE IF NOT EXISTS role_prompts (
         role_id TEXT PRIMARY KEY,
@@ -206,6 +251,215 @@ export class DatabaseHandler {
         updated_at TEXT NOT NULL
       );
     `);
+  }
+
+  /**
+   * Seed default application settings.
+   * Idempotent — uses INSERT OR IGNORE to skip existing keys.
+   */
+  private seedDefaultSettings(): void {
+    const defaults: Record<string, string> = {
+      cronIntervalSeconds: '60',
+      baseReposFolder: '',
+      cliTool: 'claude',
+      workerEnabled: 'false',
+    };
+    const insert = this.db.prepare(
+      `INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)`
+    );
+    const now = new Date().toISOString();
+    for (const [key, value] of Object.entries(defaults)) {
+      insert.run(key, value, now);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Application Settings CRUD
+  // ─────────────────────────────────────────────────────────────────────
+
+  /**
+   * Get a single setting value by key. Returns undefined if not found.
+   */
+  getSetting(key: string): string | undefined {
+    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return row?.value;
+  }
+
+  /**
+   * Set a single setting value (upsert).
+   */
+  setSetting(key: string, value: string): void {
+    this.db.prepare(`
+      INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run(key, value, new Date().toISOString());
+  }
+
+  /**
+   * Get all settings as a key-value map.
+   */
+  getAllSettings(): Record<string, string> {
+    const rows = this.db.prepare('SELECT key, value FROM settings').all() as Array<{ key: string; value: string }>;
+    const result: Record<string, string> = {};
+    for (const row of rows) {
+      result[row.key] = row.value;
+    }
+    return result;
+  }
+
+  /**
+   * Get queue-specific settings as a typed object.
+   */
+  getQueueSettings(): { cronIntervalSeconds: number; baseReposFolder: string; cliTool: string; workerEnabled: boolean } {
+    const all = this.getAllSettings();
+    return {
+      cronIntervalSeconds: parseInt(all['cronIntervalSeconds'] ?? '60', 10),
+      baseReposFolder: all['baseReposFolder'] ?? '',
+      cliTool: all['cliTool'] ?? 'claude',
+      workerEnabled: all['workerEnabled'] === 'true',
+    };
+  }
+
+  /**
+   * Update multiple queue settings at once.
+   */
+  updateQueueSettings(updates: Partial<{ cronIntervalSeconds: number; baseReposFolder: string; cliTool: string; workerEnabled: boolean }>): void {
+    if (updates.cronIntervalSeconds !== undefined) {
+      this.setSetting('cronIntervalSeconds', String(updates.cronIntervalSeconds));
+    }
+    if (updates.baseReposFolder !== undefined) {
+      this.setSetting('baseReposFolder', updates.baseReposFolder);
+    }
+    if (updates.cliTool !== undefined) {
+      this.setSetting('cliTool', updates.cliTool);
+    }
+    if (updates.workerEnabled !== undefined) {
+      this.setSetting('workerEnabled', String(updates.workerEnabled));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Dev Queue CRUD (T02)
+  // ─────────────────────────────────────────────────────────────────────
+
+  /** Strip potential secrets from CLI error output before persisting. */
+  private sanitizeErrorMessage(msg: string | null | undefined): string | null {
+    if (!msg) return null;
+    // Replace common secret patterns: API keys, tokens, passwords
+    return msg
+      .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED]')
+      .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+      .replace(/(?:api[_-]?key|token|password|secret|authorization)[=: ]+\S+/gi, '[REDACTED]')
+      .substring(0, 4096); // cap length
+  }
+
+  /**
+   * Enqueue a task for automated development.
+   * Uses INSERT OR IGNORE to skip duplicates (repo+feature+task+pending uniqueness).
+   */
+  enqueueTask(repoName: string, featureSlug: string, taskId: string, cliTool: string): { id: number; alreadyQueued: boolean } {
+    const result = this.db.prepare(`
+      INSERT OR IGNORE INTO dev_queue (repo_name, feature_slug, task_id, status, cli_tool, created_at)
+      VALUES (?, ?, ?, 'pending', ?, ?)
+    `).run(repoName, featureSlug, taskId, cliTool, new Date().toISOString());
+
+    if (result.changes === 0) {
+      // Already queued — find the existing row
+      const existing = this.db.prepare(`
+        SELECT id FROM dev_queue
+        WHERE repo_name = ? AND feature_slug = ? AND task_id = ? AND status IN ('pending', 'running')
+      `).get(repoName, featureSlug, taskId) as { id: number } | undefined;
+      return { id: existing?.id ?? 0, alreadyQueued: true };
+    }
+    return { id: Number(result.lastInsertRowid), alreadyQueued: false };
+  }
+
+  /**
+   * Get the next pending queue item (FIFO) and mark it as running.
+   * Returns null if nothing pending.
+   */
+  claimNextQueueItem(workerPid: number): DevQueueRow | null {
+    const row = this.db.prepare(`
+      SELECT id, repo_name, feature_slug, task_id, status, cli_tool, created_at,
+             started_at, completed_at, error_message, retry_count, worker_pid
+      FROM dev_queue
+      WHERE status = 'pending'
+      ORDER BY created_at ASC
+      LIMIT 1
+    `).get() as DevQueueRow | undefined;
+
+    if (!row) return null;
+
+    this.db.prepare(`
+      UPDATE dev_queue SET status = 'running', started_at = ?, worker_pid = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), workerPid, row.id);
+
+    return { ...row, status: 'running', worker_pid: workerPid };
+  }
+
+  /**
+   * Mark a queue item as completed.
+   */
+  completeQueueItem(id: number): void {
+    this.db.prepare(`
+      UPDATE dev_queue SET status = 'completed', completed_at = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), id);
+  }
+
+  /**
+   * Mark a queue item as failed with a sanitized error message.
+   */
+  failQueueItem(id: number, errorMessage: string): void {
+    this.db.prepare(`
+      UPDATE dev_queue SET status = 'failed', completed_at = ?, error_message = ?, retry_count = retry_count + 1
+      WHERE id = ?
+    `).run(new Date().toISOString(), this.sanitizeErrorMessage(errorMessage), id);
+  }
+
+  /**
+   * Get all queue items for a given feature, optionally filtered by status.
+   */
+  getQueueItems(repoName?: string, featureSlug?: string, status?: string): DevQueueRow[] {
+    let sql = `SELECT id, repo_name, feature_slug, task_id, status, cli_tool,
+                      created_at, started_at, completed_at, error_message, retry_count, worker_pid
+               FROM dev_queue WHERE 1=1`;
+    const params: any[] = [];
+
+    if (repoName) { sql += ' AND repo_name = ?'; params.push(repoName); }
+    if (featureSlug) { sql += ' AND feature_slug = ?'; params.push(featureSlug); }
+    if (status) { sql += ' AND status = ?'; params.push(status); }
+    sql += ' ORDER BY created_at ASC';
+
+    return this.db.prepare(sql).all(...params) as DevQueueRow[];
+  }
+
+  /**
+   * Get queue statistics: pending, running, completed, failed counts.
+   */
+  getQueueStats(): { pending: number; running: number; completed: number; failed: number; total: number } {
+    const rows = this.db.prepare(`
+      SELECT status, COUNT(*) as cnt FROM dev_queue GROUP BY status
+    `).all() as Array<{ status: string; cnt: number }>;
+
+    const stats = { pending: 0, running: 0, completed: 0, failed: 0, total: 0 };
+    for (const row of rows) {
+      if (row.status in stats) (stats as any)[row.status] = row.cnt;
+      stats.total += row.cnt;
+    }
+    return stats;
+  }
+
+  /**
+   * Clear completed or failed queue items older than the given number of days.
+   */
+  pruneQueueItems(olderThanDays: number = 7): number {
+    const cutoff = new Date(Date.now() - olderThanDays * 86400000).toISOString();
+    const result = this.db.prepare(`
+      DELETE FROM dev_queue WHERE status IN ('completed', 'failed') AND completed_at < ?
+    `).run(cutoff);
+    return Number(result.changes);
   }
 
   /**
@@ -528,6 +782,23 @@ export class DatabaseHandler {
         UPDATE test_scenarios SET repo_name = 'default' WHERE repo_name IS NULL;
         UPDATE stakeholder_reviews SET repo_name = 'default' WHERE repo_name IS NULL;
       `);
+
+      // Create unique indexes required for ON CONFLICT upserts
+      const indexStatements = [
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_features_repo_slug ON features(repo_name, feature_slug)`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_repo_feature ON tasks(repo_name, feature_slug)`,
+        `CREATE INDEX IF NOT EXISTS idx_transitions_repo_task ON transitions(repo_name, feature_slug, task_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_acceptance_criteria_repo_task ON acceptance_criteria(repo_name, feature_slug, task_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_test_scenarios_repo_task ON test_scenarios(repo_name, feature_slug, task_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_stakeholder_reviews_repo_task ON stakeholder_reviews(repo_name, feature_slug, task_id)`,
+      ];
+      for (const stmt of indexStatements) {
+        try {
+          this.db.exec(stmt);
+        } catch (e) {
+          // Index may already exist, ignore
+        }
+      }
     } catch (error) {
       console.error('Error applying inline migration:', error);
     }
