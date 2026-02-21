@@ -482,6 +482,16 @@ export class DatabaseHandler {
       return { success: false, error: `Cannot re-enqueue item in '${existing.status}' status. Item must be in 'failed' status.` };
     }
 
+    // Check if there's already a pending item for the same task
+    const pendingDup = this.db.prepare(`
+      SELECT id FROM dev_queue
+      WHERE repo_name = ? AND feature_slug = ? AND task_id = ? AND status = 'pending'
+    `).get(existing.repo_name, existing.feature_slug, existing.task_id) as { id: number } | undefined;
+
+    if (pendingDup) {
+      return { success: false, error: `Cannot re-enqueue: a pending item already exists for task ${existing.task_id} (item #${pendingDup.id})` };
+    }
+
     const result = this.db.prepare(`
       UPDATE dev_queue
       SET status = 'pending', retry_count = 0, error_message = NULL,
