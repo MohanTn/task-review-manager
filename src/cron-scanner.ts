@@ -1,0 +1,127 @@
+/**
+ * Cron Scanner — Periodically scans all repos/features for tasks in
+ * ReadyForDevelopment status and enqueues them in the dev_queue table.
+ *
+ * T03: Cron job scanner for ReadyForDevelopment tasks
+ */
+import { AIConductor } from './AIConductor.js';
+
+export class CronScanner {
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private running = false;
+  private manager: AIConductor;
+
+  constructor(manager: AIConductor) {
+    this.manager = manager;
+  }
+
+  /** Whether the cron loop is currently active. */
+  get isRunning(): boolean {
+    return this.running;
+  }
+
+  /**
+   * Start the cron loop. Reads cronIntervalSeconds from settings on each tick
+   * so configuration changes take effect without a restart.
+   */
+  start(): void {
+    if (this.running) return;
+    this.running = true;
+    this.scheduleNext();
+    console.error('[CronScanner] Started');
+  }
+
+  /** Stop the cron loop gracefully. */
+  stop(): void {
+    this.running = false;
+    if (this.intervalId) {
+      clearTimeout(this.intervalId);
+      this.intervalId = null;
+    }
+    console.error('[CronScanner] Stopped');
+  }
+
+  /**
+   * Run a single scan cycle:
+   *  1. Check if worker is enabled in settings.
+   *  2. List every registered repo.
+   *  3. For each repo, list features.
+   *  4. For each feature, find tasks with status ReadyForDevelopment.
+   *  5. Enqueue any task that isn't already pending/running.
+   *
+   * Returns the number of newly enqueued tasks.
+   */
+  async scan(): Promise<number> {
+    const settings = this.manager.getQueueSettings();
+    if (!settings.workerEnabled) return 0;
+
+    let enqueued = 0;
+
+    try {
+      // List all repos
+      const reposResult = await this.manager.listRepos();
+      const repoObjects: Array<{ repoName: string }> = reposResult.success ? (reposResult as any).repos ?? [] : [];
+
+      for (const repo of repoObjects) {
+        const repoName = repo.repoName;
+        // List features for this repo
+        const featuresResult = await this.manager.listFeatures(repoName);
+        const features: Array<{ featureSlug: string }> = (featuresResult as any).features ?? [];
+
+        for (const feat of features) {
+          // Get tasks with ReadyForDevelopment status
+          const tasksResult = await this.manager.getTasksByStatus({
+            repoName,
+            featureSlug: feat.featureSlug,
+            status: 'ReadyForDevelopment',
+          });
+
+          const tasks: Array<{ taskId: string }> = (tasksResult as any).tasks ?? [];
+
+          for (const task of tasks) {
+            const { alreadyQueued } = this.manager.enqueueTask(
+              repoName,
+              feat.featureSlug,
+              task.taskId,
+              settings.cliTool,
+            );
+            if (!alreadyQueued) enqueued++;
+          }
+        }
+      }
+
+      if (enqueued > 0) {
+        console.error(`[CronScanner] Enqueued ${enqueued} task(s)`);
+      }
+    } catch (err) {
+      console.error('[CronScanner] Error during scan:', err);
+    }
+
+    return enqueued;
+  }
+
+  // ────────────────────────────────────────────────────────────────────
+  // Private helpers
+  // ────────────────────────────────────────────────────────────────────
+
+  private scheduleNext(): void {
+    if (!this.running) return;
+
+    // Re-read interval from settings on every tick so runtime changes are honoured
+    const settings = this.manager.getQueueSettings();
+    const ms = Math.max(settings.cronIntervalSeconds * 1000, 10_000);
+
+    this.intervalId = setTimeout(async () => {
+      try {
+        await this.scan();
+      } finally {
+        this.scheduleNext();
+      }
+    }, ms);
+
+    // Prevent the timer from keeping the process alive during shutdown
+    if (this.intervalId && typeof this.intervalId === 'object' && 'unref' in this.intervalId) {
+      this.intervalId.unref();
+    }
+  }
+}

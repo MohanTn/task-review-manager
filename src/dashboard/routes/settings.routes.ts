@@ -18,6 +18,10 @@ const VALID_ROLES: PipelineRole[] = [
 const MAX_SYSTEM_PROMPT_LENGTH = 10_000;
 const MAX_FIELD_LENGTH = 2_000;
 
+const VALID_CLI_TOOLS = ['claude', 'copilot'];
+const MIN_CRON_INTERVAL = 30;
+const MAX_CRON_INTERVAL = 3600;
+
 function isValidRole(roleId: string): roleId is PipelineRole {
   return VALID_ROLES.includes(roleId as PipelineRole);
 }
@@ -124,6 +128,91 @@ export function createSettingsRoutes(reviewManager: AIConductor): Router {
     try {
       const defaults = reviewManager.resetRolePrompt(roleId);
       res.json({ success: true, roleId, ...defaults });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Queue & Worker Settings
+  // ─────────────────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/settings/queue
+   * Returns all queue-related settings.
+   */
+  router.get('/settings/queue', (_req: Request, res: Response): void => {
+    try {
+      const settings = reviewManager.getQueueSettings();
+      res.json({ success: true, ...settings });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * PUT /api/settings/queue
+   * Updates one or more queue settings.
+   * Body: { cronIntervalSeconds?, baseReposFolder?, cliTool?, workerEnabled? }
+   */
+  router.put('/settings/queue', (req: Request, res: Response): void => {
+    const { cronIntervalSeconds, baseReposFolder, cliTool, workerEnabled } = req.body;
+
+    // Validate cronIntervalSeconds
+    if (cronIntervalSeconds !== undefined) {
+      const val = Number(cronIntervalSeconds);
+      if (!Number.isInteger(val) || val < MIN_CRON_INTERVAL || val > MAX_CRON_INTERVAL) {
+        res.status(400).json({
+          success: false,
+          error: `cronIntervalSeconds must be an integer between ${MIN_CRON_INTERVAL} and ${MAX_CRON_INTERVAL}`,
+        });
+        return;
+      }
+    }
+
+    // Validate cliTool
+    if (cliTool !== undefined && !VALID_CLI_TOOLS.includes(cliTool)) {
+      res.status(400).json({
+        success: false,
+        error: `cliTool must be one of: ${VALID_CLI_TOOLS.join(', ')}`,
+      });
+      return;
+    }
+
+    // Validate baseReposFolder (no shell metacharacters)
+    if (baseReposFolder !== undefined && typeof baseReposFolder !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'baseReposFolder must be a string',
+      });
+      return;
+    }
+
+    // Validate workerEnabled
+    if (workerEnabled !== undefined && typeof workerEnabled !== 'boolean') {
+      res.status(400).json({
+        success: false,
+        error: 'workerEnabled must be a boolean',
+      });
+      return;
+    }
+
+    try {
+      const updates: Record<string, any> = {};
+      if (cronIntervalSeconds !== undefined) updates.cronIntervalSeconds = Number(cronIntervalSeconds);
+      if (baseReposFolder !== undefined) updates.baseReposFolder = baseReposFolder;
+      if (cliTool !== undefined) updates.cliTool = cliTool;
+      if (workerEnabled !== undefined) updates.workerEnabled = workerEnabled;
+
+      reviewManager.updateQueueSettings(updates);
+      const updated = reviewManager.getQueueSettings();
+      res.json({ success: true, ...updated });
     } catch (error) {
       res.status(500).json({
         success: false,

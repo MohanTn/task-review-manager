@@ -1,5 +1,5 @@
 /**
- * Settings API - Role Prompt configuration endpoints
+ * Settings API - Role Prompt & Queue configuration endpoints
  */
 import { BaseClient } from './base.js';
 
@@ -14,7 +14,53 @@ export interface RolePromptConfig {
   updatedAt: string;
 }
 
+export interface QueueSettings {
+  cronIntervalSeconds: number;
+  baseReposFolder: string;
+  cliTool: 'claude' | 'copilot';
+  workerEnabled: boolean;
+}
+
 export class SettingsAPI extends BaseClient {
+  // ─── Queue & Worker Settings ───────────────────────────────────────
+
+  /**
+   * Fetch current queue/worker settings.
+   */
+  static async getQueueSettings(): Promise<QueueSettings> {
+    const data = await this.request<QueueSettings & { success: boolean }>(
+      `${this.apiBase}/settings/queue`
+    );
+    return {
+      cronIntervalSeconds: data.cronIntervalSeconds,
+      baseReposFolder: data.baseReposFolder,
+      cliTool: data.cliTool,
+      workerEnabled: data.workerEnabled,
+    };
+  }
+
+  /**
+   * Update queue/worker settings (partial update).
+   */
+  static async updateQueueSettings(
+    updates: Partial<QueueSettings>
+  ): Promise<QueueSettings> {
+    const data = await this.request<QueueSettings & { success: boolean }>(
+      `${this.apiBase}/settings/queue`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      }
+    );
+    return {
+      cronIntervalSeconds: data.cronIntervalSeconds,
+      baseReposFolder: data.baseReposFolder,
+      cliTool: data.cliTool,
+      workerEnabled: data.workerEnabled,
+    };
+  }
+
+  // ─── Role Prompt Settings ──────────────────────────────────────────
   /**
    * Fetch all role prompt configs.
    */
