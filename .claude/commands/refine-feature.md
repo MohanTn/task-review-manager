@@ -70,6 +70,22 @@ No file must be created for this workflow. All outputs should be returned in the
 - Review optimal order, parallelizable phases, and any circular dependencies or warnings
 - If dependencies need adjustment, update tasks using `mcp__aiconductor__update_task`
 
+# Step 6.6 - Validate Mandatory Refinement Data [NEW]
+**CRITICAL: These fields are mandatory before proceeding to stakeholder reviews**
+- Verify that clarifications are not empty:
+  - Call `mcp__aiconductor__get_refinement_status` to check clarifications count
+  - If clarifications.length === 0: **BLOCK** workflow and inform user that at least one clarification must be present (even if just to document assumptions)
+- Verify that feature-level acceptance criteria are not empty:
+  - Call `mcp__aiconductor__get_refinement_status` to check acceptanceCriteria count
+  - If acceptanceCriteria.length === 0: **BLOCK** workflow and inform user that acceptance criteria are required
+- Verify that feature-level test scenarios are not empty:
+  - Call `mcp__aiconductor__get_refinement_status` to check testScenarios count
+  - If testScenarios.length === 0: **BLOCK** workflow and inform user that test scenarios are required
+- If any field is missing:
+  - Report which fields are empty
+  - Return to the relevant step (Step 3 for clarifications, Step 4 for AC, Step 5 for test scenarios)
+  - Do NOT proceed to stakeholder reviews until all three are non-empty
+
 # Step 7 - Stakeholder Review Cycle (Batched by Role)
 **CRITICAL: Process ALL tasks through each role in a single batch before moving to the next role. This is far more efficient than switching roles per task.**
 

@@ -6,11 +6,9 @@ import styles from './ContentHeader.module.css';
 interface ContentHeaderProps {
   featureTitle: string;
   tasks: Task[];
-  detailVisible?: boolean;
-  onToggleDetail?: () => void;
 }
 
-const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks, detailVisible = true, onToggleDetail }) => {
+const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) => {
   const { searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
   const [copied, setCopied] = useState(false);
 
@@ -96,16 +94,6 @@ const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks, deta
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search tasks"
         />
-        {onToggleDetail && (
-          <button
-            className={`${styles.viewBtn} ${detailVisible ? styles.active : ''}`}
-            onClick={onToggleDetail}
-            aria-pressed={detailVisible}
-            title={detailVisible ? 'Hide details panel' : 'Show details panel'}
-          >
-            Details
-          </button>
-        )}
       </div>
     </div>
   );

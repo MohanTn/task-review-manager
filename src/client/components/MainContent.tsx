@@ -26,7 +26,6 @@ const MainContent: React.FC = () => {
 
   // Split panel state
   const [detailPercent, setDetailPercent] = useState(DEFAULT_DETAIL_PERCENT);
-  const [detailVisible, setDetailVisible] = useState(true);
   const isDragging = useRef(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const prevDetailPercent = useRef(DEFAULT_DETAIL_PERCENT);
@@ -60,9 +59,6 @@ const MainContent: React.FC = () => {
     document.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  const toggleDetailPanel = useCallback(() => {
-    setDetailVisible(v => !v);
-  }, []);
 
   const [featureTitle, setFeatureTitle] = useState('');
   const [currentFeature, setCurrentFeature] = useState<Feature | null>(null);
@@ -152,8 +148,6 @@ const MainContent: React.FC = () => {
       <ContentHeader
         featureTitle={featureTitle}
         tasks={currentTasks}
-        detailVisible={detailVisible}
-        onToggleDetail={toggleDetailPanel}
       />
 
       <div className={styles.splitContainer} ref={splitContainerRef}>
@@ -163,26 +157,22 @@ const MainContent: React.FC = () => {
         </div>
 
         {/* Resizer handle */}
-        {detailVisible && (
-          <div
-            className={styles.resizer}
-            onMouseDown={handleResizerMouseDown}
-            role="separator"
-            aria-label="Resize panels"
-            aria-orientation="vertical"
-          />
-        )}
+        <div
+          className={styles.resizer}
+          onMouseDown={handleResizerMouseDown}
+          role="separator"
+          aria-label="Resize panels"
+          aria-orientation="vertical"
+        />
 
         {/* Detail panel */}
-        {detailVisible && (
-          <div
-            className={styles.detailPanel}
-            style={{ width: `${detailPercent}%` }}
-          >
-            <DetailPanel tasks={currentTasks} feature={currentFeature} />
-            <QueueAuditPanel />
-          </div>
-        )}
+        <div
+          className={styles.detailPanel}
+          style={{ width: `${detailPercent}%` }}
+        >
+          <DetailPanel tasks={currentTasks} feature={currentFeature} />
+          <QueueAuditPanel />
+        </div>
       </div>
     </main>
   );
