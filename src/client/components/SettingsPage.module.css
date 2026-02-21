@@ -506,3 +506,136 @@
   border-top: 1px solid var(--border-light);
   flex-wrap: wrap;
 }
+
+/* ── Queue Management Section ── */
+.queueToolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.queueFilterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.queueFeedback {
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: #fff5f5;
+  border-radius: 3px;
+  border: 1px solid #ffbdad;
+}
+
+.queueEmptyMsg {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* ── Queue Table ── */
+.queueTable {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.queueTableHead {
+  display: flex;
+  align-items: center;
+  background: var(--column-bg);
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.queueTableRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.1s;
+}
+
+.queueTableRow:last-child {
+  border-bottom: none;
+}
+
+.queueTableRow:hover {
+  background: var(--card-hover);
+}
+
+.queueColId { flex: 0 0 40px; }
+.queueColRepo { flex: 1 1 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queueColFeature { flex: 1 1 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queueColTask { flex: 0 0 50px; font-weight: 600; }
+.queueColStatus { flex: 0 0 90px; }
+.queueColCli { flex: 0 0 60px; }
+.queueColTime { flex: 0 0 90px; color: var(--text-muted); }
+.queueColActions { flex: 0 0 80px; text-align: right; }
+
+/* ── Queue Status Badges ── */
+.queueStatusBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--column-bg);
+  color: var(--text-secondary);
+}
+
+.queueStatus_pending { background: #f0f0f0; color: var(--text-muted); }
+.queueStatus_running { background: var(--primary-light); color: var(--primary); }
+.queueStatus_completed { background: #e6f9f0; color: var(--success); }
+.queueStatus_failed { background: #fff0ed; color: var(--danger); }
+
+/* ── Queue Action Buttons ── */
+.queueActionBtn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--primary);
+  border-radius: 3px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.queueActionBtn:hover:not(:disabled) {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.queueActionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.queueActionDanger {
+  color: var(--danger);
+}
+
+.queueActionDanger:hover:not(:disabled) {
+  background: #fff0ed;
+  border-color: var(--danger);
+}
+
+.queueNoAction {
+  color: var(--text-muted);
+  font-size: 12px;
+}

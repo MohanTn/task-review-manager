@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SettingsAPI, RolePromptConfig, QueueSettings } from '../api/settings.api.js';
+import { QueueAPI, QueueItem } from '../api/queue.api.js';
 import styles from './SettingsPage.module.css';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -57,6 +58,75 @@ const SettingsPage: React.FC = () => {
   });
   const [queueSaveState, setQueueSaveState] = useState<SaveState>({ status: 'idle' });
 
+  // Queue management state
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
+  const [queueFilter, setQueueFilter] = useState<string>('');
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<number | null>(null);
+  const [pruneConfirm, setPruneConfirm] = useState(false);
+  const [pruneDays, setPruneDays] = useState(7);
+
+  const loadQueueItems = useCallback(async () => {
+    setQueueLoading(true);
+    setQueueError(null);
+    try {
+      const items = await QueueAPI.getQueueItems(
+        undefined,
+        undefined,
+        queueFilter || undefined,
+      );
+      setQueueItems(items);
+    } catch (err) {
+      setQueueError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setQueueLoading(false);
+    }
+  }, [queueFilter]);
+
+  const handleReenqueue = async (id: number) => {
+    if (!window.confirm('Re-enqueue this failed item? It will be reset to pending status.')) return;
+    setActionInProgress(id);
+    try {
+      await QueueAPI.reenqueueItem(id);
+      await loadQueueItems();
+    } catch (err) {
+      setQueueError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleCancel = async (id: number) => {
+    if (!window.confirm('Cancel this pending queue item? It will be permanently removed.')) return;
+    setActionInProgress(id);
+    try {
+      await QueueAPI.cancelItem(id);
+      await loadQueueItems();
+    } catch (err) {
+      setQueueError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handlePrune = async () => {
+    try {
+      const removed = await QueueAPI.pruneItems(pruneDays);
+      setPruneConfirm(false);
+      setQueueError(null);
+      await loadQueueItems();
+      // Brief success feedback
+      setQueueError(null);
+      if (removed > 0) {
+        setQueueError(`Pruned ${removed} old item(s)`);
+        setTimeout(() => setQueueError(null), 3000);
+      }
+    } catch (err) {
+      setQueueError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const loadPrompts = useCallback(async () => {
     try {
       setLoading(true);
@@ -89,7 +159,8 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     loadPrompts();
-  }, [loadPrompts]);
+    loadQueueItems();
+  }, [loadPrompts, loadQueueItems]);
 
   function promptToEditState(p: RolePromptConfig): EditState {
     return {
@@ -474,6 +545,139 @@ const SettingsPage: React.FC = () => {
             <span className={styles.errorMsg} role="alert">✗ {queueSaveState.message}</span>
           )}
         </div>
+      </div>
+
+      {/* ── Queue Management ── */}
+      <hr className={styles.sectionDivider} />
+
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Queue Management</h2>
+        <p className={styles.sectionSubtitle}>
+          View, re-enqueue, cancel, and prune queue items across all repositories and features.
+        </p>
+      </div>
+
+      <div className={styles.queueCard}>
+        {/* Filter + actions toolbar */}
+        <div className={styles.queueToolbar}>
+          <div className={styles.queueFilterGroup}>
+            <label className={styles.queueLabel} htmlFor="queueFilter">Filter by status</label>
+            <select
+              id="queueFilter"
+              className={styles.selectInput}
+              value={queueFilter}
+              onChange={e => setQueueFilter(e.target.value)}
+              aria-label="Filter queue items by status"
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+            <button className={styles.resetBtn} onClick={loadQueueItems} title="Refresh queue items">
+              ↻ Refresh
+            </button>
+          </div>
+
+          <div className={styles.queueFilterGroup}>
+            {!pruneConfirm ? (
+              <button className={styles.resetBtn} onClick={() => setPruneConfirm(true)} title="Prune old items">
+                Prune Old Items
+              </button>
+            ) : (
+              <>
+                <label className={styles.queueLabel} htmlFor="pruneDays">Older than (days):</label>
+                <input
+                  id="pruneDays"
+                  type="number"
+                  className={styles.numberInput}
+                  min={1}
+                  value={pruneDays}
+                  onChange={e => setPruneDays(parseInt(e.target.value, 10) || 7)}
+                  style={{ width: 60 }}
+                />
+                <button className={styles.saveBtn} onClick={handlePrune} style={{ padding: '5px 12px', fontSize: '12px' }}>
+                  Prune
+                </button>
+                <button className={styles.resetBtn} onClick={() => setPruneConfirm(false)} style={{ padding: '5px 10px', fontSize: '12px' }}>
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {queueError && (
+          <div className={styles.queueFeedback} role="alert">{queueError}</div>
+        )}
+
+        {queueLoading && queueItems.length === 0 && (
+          <div className={styles.queueEmptyMsg}>Loading queue items…</div>
+        )}
+
+        {!queueLoading && queueItems.length === 0 && (
+          <div className={styles.queueEmptyMsg}>
+            No queue items{queueFilter ? ` with status "${queueFilter}"` : ''}.
+          </div>
+        )}
+
+        {queueItems.length > 0 && (
+          <div className={styles.queueTable} role="table" aria-label="Queue items">
+            <div className={styles.queueTableHead} role="row">
+              <span role="columnheader" className={styles.queueColId}>ID</span>
+              <span role="columnheader" className={styles.queueColRepo}>Repo</span>
+              <span role="columnheader" className={styles.queueColFeature}>Feature</span>
+              <span role="columnheader" className={styles.queueColTask}>Task</span>
+              <span role="columnheader" className={styles.queueColStatus}>Status</span>
+              <span role="columnheader" className={styles.queueColCli}>CLI</span>
+              <span role="columnheader" className={styles.queueColTime}>Created</span>
+              <span role="columnheader" className={styles.queueColActions}>Actions</span>
+            </div>
+            {queueItems.map(item => (
+              <div key={item.id} className={styles.queueTableRow} role="row">
+                <span role="cell" className={styles.queueColId}>{item.id}</span>
+                <span role="cell" className={styles.queueColRepo}>{item.repo_name}</span>
+                <span role="cell" className={styles.queueColFeature} title={item.feature_slug}>{item.feature_slug}</span>
+                <span role="cell" className={styles.queueColTask}>{item.task_id}</span>
+                <span role="cell" className={styles.queueColStatus}>
+                  <span className={`${styles.queueStatusBadge} ${styles[`queueStatus_${item.status}`] || ''}`}>
+                    {item.status}
+                  </span>
+                </span>
+                <span role="cell" className={styles.queueColCli}>{item.cli_tool}</span>
+                <span role="cell" className={styles.queueColTime}>
+                  {new Date(item.created_at).toLocaleDateString()}
+                </span>
+                <span role="cell" className={styles.queueColActions}>
+                  {item.status === 'failed' && (
+                    <button
+                      className={styles.queueActionBtn}
+                      onClick={() => handleReenqueue(item.id)}
+                      disabled={actionInProgress === item.id}
+                      title="Re-enqueue this failed item"
+                    >
+                      {actionInProgress === item.id ? '…' : '↻ Retry'}
+                    </button>
+                  )}
+                  {item.status === 'pending' && (
+                    <button
+                      className={`${styles.queueActionBtn} ${styles.queueActionDanger}`}
+                      onClick={() => handleCancel(item.id)}
+                      disabled={actionInProgress === item.id}
+                      title="Cancel this pending item"
+                    >
+                      {actionInProgress === item.id ? '…' : '✗ Cancel'}
+                    </button>
+                  )}
+                  {(item.status === 'running' || item.status === 'completed') && (
+                    <span className={styles.queueNoAction}>—</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

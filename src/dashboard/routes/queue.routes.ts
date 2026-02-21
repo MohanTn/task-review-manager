@@ -50,6 +50,84 @@ export function createQueueRoutes(reviewManager: AIConductor): Router {
   });
 
   /**
+   * GET /api/queue/:id
+   * Get a single queue item by ID.
+   */
+  router.get('/queue/:id', (req: Request, res: Response): void => {
+    try {
+      const id = parseInt(String(req.params.id), 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid item ID: must be a positive integer' });
+        return;
+      }
+      const item = reviewManager.getQueueItem(id);
+      if (!item) {
+        res.status(404).json({ success: false, error: `Queue item ${id} not found` });
+        return;
+      }
+      res.json({ success: true, item });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * POST /api/queue/:id/reenqueue
+   * Re-enqueue a failed queue item: reset to pending with retry_count=0.
+   */
+  router.post('/queue/:id/reenqueue', (req: Request, res: Response): void => {
+    try {
+      const id = parseInt(String(req.params.id), 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid item ID: must be a positive integer' });
+        return;
+      }
+      const result = reviewManager.reenqueueItem(id);
+      if (!result.success) {
+        // Determine status code based on error type
+        const statusCode = result.error?.includes('not found') ? 404 : 400;
+        res.status(statusCode).json({ success: false, error: result.error });
+        return;
+      }
+      res.json({ success: true, item: result.item });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
+   * DELETE /api/queue/:id
+   * Cancel (remove) a pending queue item.
+   */
+  router.delete('/queue/:id', (req: Request, res: Response): void => {
+    try {
+      const id = parseInt(String(req.params.id), 10);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid item ID: must be a positive integer' });
+        return;
+      }
+      const result = reviewManager.cancelQueueItem(id);
+      if (!result.success) {
+        const statusCode = result.error?.includes('not found') ? 404 : 400;
+        res.status(statusCode).json({ success: false, error: result.error });
+        return;
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+
+  /**
    * POST /api/queue/prune
    * Remove completed/failed items older than N days (default 7).
    * Body: { olderThanDays?: number }

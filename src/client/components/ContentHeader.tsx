@@ -6,10 +6,12 @@ import styles from './ContentHeader.module.css';
 interface ContentHeaderProps {
   featureTitle: string;
   tasks: Task[];
+  detailVisible?: boolean;
+  onToggleDetail?: () => void;
 }
 
-const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) => {
-  const { currentView, setCurrentView, searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
+const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks, detailVisible = true, onToggleDetail }) => {
+  const { searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
   const [copied, setCopied] = useState(false);
 
   const stats = React.useMemo(() => {
@@ -94,22 +96,16 @@ const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) =>
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search tasks"
         />
-        <div className={styles.viewToggle} role="group" aria-label="View mode">
+        {onToggleDetail && (
           <button
-            className={`${styles.viewBtn} ${currentView === 'board' ? styles.active : ''}`}
-            onClick={() => setCurrentView('board')}
-            aria-pressed={currentView === 'board'}
-          >
-            Board
-          </button>
-          <button
-            className={`${styles.viewBtn} ${currentView === 'detail' ? styles.active : ''}`}
-            onClick={() => setCurrentView('detail')}
-            aria-pressed={currentView === 'detail'}
+            className={`${styles.viewBtn} ${detailVisible ? styles.active : ''}`}
+            onClick={onToggleDetail}
+            aria-pressed={detailVisible}
+            title={detailVisible ? 'Hide details panel' : 'Show details panel'}
           >
             Details
           </button>
-        </div>
+        )}
       </div>
     </div>
   );

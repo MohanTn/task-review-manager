@@ -2355,6 +2355,15 @@ export class AIConductor {
   /** Prune old completed/failed items. */
   pruneQueueItems(olderThanDays?: number) { return this.dbHandler.pruneQueueItems(olderThanDays); }
 
+  /** Get a single queue item by ID. */
+  getQueueItem(id: number) { return this.dbHandler.getQueueItem(id); }
+
+  /** Re-enqueue a failed queue item (reset to pending). */
+  reenqueueItem(id: number) { return this.dbHandler.reenqueueItem(id); }
+
+  /** Cancel (remove) a pending queue item. */
+  cancelQueueItem(id: number) { return this.dbHandler.cancelQueueItem(id); }
+
   // ─────────────────────────────────────────────────────────────────────
   // Role Prompt Settings
   // ─────────────────────────────────────────────────────────────────────

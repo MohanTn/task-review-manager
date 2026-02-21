@@ -3,6 +3,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { AIConductor } from '../../AIConductor.js';
+import { wsManager } from '../../websocket.js';
 
 export function createRepoRoutes(reviewManager: AIConductor): Router {
   const router = Router();
@@ -40,6 +41,12 @@ export function createRepoRoutes(reviewManager: AIConductor): Router {
       });
 
       if (result.success) {
+        wsManager.broadcast({
+          type: 'repo-changed',
+          action: 'created',
+          repoName,
+          timestamp: Date.now(),
+        });
         res.status(201).json(result);
       } else {
         // Check for duplicate
@@ -97,6 +104,12 @@ export function createRepoRoutes(reviewManager: AIConductor): Router {
       const result = await reviewManager.deleteRepo(repoName);
 
       if (result.success) {
+        wsManager.broadcast({
+          type: 'repo-changed',
+          action: 'deleted',
+          repoName,
+          timestamp: Date.now(),
+        });
         res.json(result);
       } else if (result.error && result.error.includes('not found')) {
         res.status(404).json(result);

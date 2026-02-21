@@ -3,6 +3,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { AIConductor } from '../../AIConductor.js';
+import { wsManager } from '../../websocket.js';
 
 export function createTaskRoutes(reviewManager: AIConductor): Router {
   const router = Router();
@@ -44,6 +45,14 @@ export function createTaskRoutes(reviewManager: AIConductor): Router {
       }
 
       reviewManager['dbHandler'].addTask(featureSlug, task, repoName || 'default');
+      wsManager.broadcast({
+        type: 'task-status-changed',
+        action: 'created',
+        featureSlug,
+        taskId: task.taskId || task.id,
+        repoName: repoName || 'default',
+        timestamp: Date.now(),
+      });
       res.json({ success: true, message: 'Task added successfully' });
     } catch (error) {
       res.status(500).json({
@@ -129,6 +138,15 @@ export function createTaskRoutes(reviewManager: AIConductor): Router {
       });
 
       if (result.success) {
+        wsManager.broadcast({
+          type: 'task-status-changed',
+          action: 'updated',
+          featureSlug,
+          taskId,
+          repoName: repoName || 'default',
+          newStatus: updates?.status,
+          timestamp: Date.now(),
+        });
         res.json(result);
       } else {
         res.status(400).json(result);
@@ -158,6 +176,14 @@ export function createTaskRoutes(reviewManager: AIConductor): Router {
       const result = await reviewManager.deleteTask(repoName, featureSlug, taskId);
 
       if (result.success) {
+        wsManager.broadcast({
+          type: 'task-status-changed',
+          action: 'deleted',
+          featureSlug,
+          taskId,
+          repoName,
+          timestamp: Date.now(),
+        });
         res.json(result);
       } else {
         res.status(400).json(result);

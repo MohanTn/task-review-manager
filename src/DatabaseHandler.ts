@@ -452,6 +452,81 @@ export class DatabaseHandler {
   }
 
   /**
+   * Get a single queue item by ID.
+   */
+  getQueueItem(id: number): DevQueueRow | null {
+    const row = this.db.prepare(`
+      SELECT id, repo_name, feature_slug, task_id, status, cli_tool,
+             created_at, started_at, completed_at, error_message, retry_count, worker_pid
+      FROM dev_queue WHERE id = ?
+    `).get(id) as DevQueueRow | undefined;
+    return row ?? null;
+  }
+
+  /**
+   * Re-enqueue a failed queue item: reset to 'pending' with retry_count=0,
+   * error_message=null, started_at=null, completed_at=null.
+   * Uses atomic WHERE clause to validate status='failed'.
+   */
+  reenqueueItem(id: number): { success: boolean; item?: DevQueueRow; error?: string } {
+    const idNum = Number(id);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      return { success: false, error: 'Invalid item ID: must be a positive integer' };
+    }
+
+    const existing = this.getQueueItem(idNum);
+    if (!existing) {
+      return { success: false, error: `Queue item ${idNum} not found` };
+    }
+    if (existing.status !== 'failed') {
+      return { success: false, error: `Cannot re-enqueue item in '${existing.status}' status. Item must be in 'failed' status.` };
+    }
+
+    const result = this.db.prepare(`
+      UPDATE dev_queue
+      SET status = 'pending', retry_count = 0, error_message = NULL,
+          started_at = NULL, completed_at = NULL, worker_pid = NULL
+      WHERE id = ? AND status = 'failed'
+    `).run(idNum);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to re-enqueue item (concurrent modification)' };
+    }
+
+    const updated = this.getQueueItem(idNum);
+    return { success: true, item: updated! };
+  }
+
+  /**
+   * Cancel (remove) a pending queue item.
+   * Only items in 'pending' status can be cancelled.
+   */
+  cancelQueueItem(id: number): { success: boolean; error?: string } {
+    const idNum = Number(id);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      return { success: false, error: 'Invalid item ID: must be a positive integer' };
+    }
+
+    const existing = this.getQueueItem(idNum);
+    if (!existing) {
+      return { success: false, error: `Queue item ${idNum} not found` };
+    }
+    if (existing.status !== 'pending') {
+      return { success: false, error: `Cannot cancel item in '${existing.status}' status. Item must be in 'pending' status.` };
+    }
+
+    const result = this.db.prepare(`
+      DELETE FROM dev_queue WHERE id = ? AND status = 'pending'
+    `).run(idNum);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to cancel item (concurrent modification)' };
+    }
+
+    return { success: true };
+  }
+
+  /**
    * Clear completed or failed queue items older than the given number of days.
    */
   pruneQueueItems(olderThanDays: number = 7): number {

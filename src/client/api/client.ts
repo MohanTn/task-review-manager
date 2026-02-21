@@ -5,6 +5,7 @@ import { RepoAPI } from './repos.api.js';
 import { FeatureAPI } from './features.api.js';
 import { TaskAPI } from './tasks.api.js';
 import { SettingsAPI, RolePromptConfig } from './settings.api.js';
+import { QueueAPI, QueueItem, QueueStats } from './queue.api.js';
 import { Feature, Task, ReviewSummary } from '../types/index.js';
 
 /**
@@ -111,8 +112,33 @@ export class APIClient {
   static async resetRolePrompt(roleId: string): Promise<RolePromptConfig> {
     return SettingsAPI.resetRolePrompt(roleId);
   }
+
+  // Queue Operations
+  static async getQueueItems(repoName?: string, featureSlug?: string, status?: string): Promise<QueueItem[]> {
+    return QueueAPI.getQueueItems(repoName, featureSlug, status);
+  }
+
+  static async getQueueStats(): Promise<QueueStats> {
+    return QueueAPI.getQueueStats();
+  }
+
+  static async getQueueItem(id: number): Promise<QueueItem> {
+    return QueueAPI.getQueueItem(id);
+  }
+
+  static async reenqueueItem(id: number): Promise<QueueItem> {
+    return QueueAPI.reenqueueItem(id);
+  }
+
+  static async cancelQueueItem(id: number): Promise<void> {
+    return QueueAPI.cancelItem(id);
+  }
+
+  static async pruneQueueItems(olderThanDays?: number): Promise<number> {
+    return QueueAPI.pruneItems(olderThanDays);
+  }
 }
 
 // Also export individual API modules for direct use
-export { RepoAPI, FeatureAPI, TaskAPI, SettingsAPI };
-export type { RolePromptConfig };
+export { RepoAPI, FeatureAPI, TaskAPI, SettingsAPI, QueueAPI };
+export type { RolePromptConfig, QueueItem, QueueStats };
