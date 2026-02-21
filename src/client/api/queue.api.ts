@@ -7,7 +7,6 @@ export interface QueueItem {
   id: number;
   repo_name: string;
   feature_slug: string;
-  task_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   cli_tool: string;
   created_at: string;

@@ -553,7 +553,7 @@ const SettingsPage: React.FC = () => {
       <div className={styles.sectionHeader}>
         <h2 className={styles.sectionTitle}>Queue Management</h2>
         <p className={styles.sectionSubtitle}>
-          View, re-enqueue, cancel, and prune queue items across all repositories and features.
+          View, re-enqueue, cancel, and prune feature-level queue items across all repositories.
         </p>
       </div>
 
@@ -628,7 +628,6 @@ const SettingsPage: React.FC = () => {
               <span role="columnheader" className={styles.queueColId}>ID</span>
               <span role="columnheader" className={styles.queueColRepo}>Repo</span>
               <span role="columnheader" className={styles.queueColFeature}>Feature</span>
-              <span role="columnheader" className={styles.queueColTask}>Task</span>
               <span role="columnheader" className={styles.queueColStatus}>Status</span>
               <span role="columnheader" className={styles.queueColCli}>CLI</span>
               <span role="columnheader" className={styles.queueColTime}>Created</span>
@@ -639,7 +638,6 @@ const SettingsPage: React.FC = () => {
                 <span role="cell" className={styles.queueColId}>{item.id}</span>
                 <span role="cell" className={styles.queueColRepo}>{item.repo_name}</span>
                 <span role="cell" className={styles.queueColFeature} title={item.feature_slug}>{item.feature_slug}</span>
-                <span role="cell" className={styles.queueColTask}>{item.task_id}</span>
                 <span role="cell" className={styles.queueColStatus}>
                   <span className={`${styles.queueStatusBadge} ${styles[`queueStatus_${item.status}`] || ''}`}>
                     {item.status}
@@ -670,8 +668,16 @@ const SettingsPage: React.FC = () => {
                       {actionInProgress === item.id ? '…' : '✗ Cancel'}
                     </button>
                   )}
-                  {(item.status === 'running' || item.status === 'completed') && (
-                    <span className={styles.queueNoAction}>—</span>
+                  {item.status === 'running' && item.worker_pid && (
+                    <span className={styles.queueRunningInfo} title={`Worker PID: ${item.worker_pid}`}>
+                      ⚙ PID {item.worker_pid}
+                    </span>
+                  )}
+                  {item.status === 'running' && !item.worker_pid && (
+                    <span className={styles.queueNoAction}>⚙ Running</span>
+                  )}
+                  {item.status === 'completed' && (
+                    <span className={styles.queueNoAction}>✓ Done</span>
                   )}
                 </span>
               </div>

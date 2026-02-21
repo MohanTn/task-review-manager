@@ -134,7 +134,7 @@ const QueueAuditPanel: React.FC = () => {
                         {STATUS_ICONS[item.status] || '?'}
                       </span>
                       <span className={styles.timelineTask}>
-                        {item.task_id}
+                        Dev Workflow
                       </span>
                       <span
                         className={`${styles.statusBadge} ${styles[`statusBadge_${item.status}`] || ''}`}

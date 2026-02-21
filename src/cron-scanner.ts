@@ -1,8 +1,7 @@
 /**
- * Cron Scanner — Periodically scans all repos/features for tasks in
- * ReadyForDevelopment status and enqueues them in the dev_queue table.
- *
- * T03: Cron job scanner for ReadyForDevelopment tasks
+ * Cron Scanner — Periodically scans all repos/features and enqueues
+ * feature-level jobs when ALL tasks in a feature have reached
+ * ReadyForDevelopment status.
  */
 import { AIConductor } from './AIConductor.js';
 
@@ -46,10 +45,10 @@ export class CronScanner {
    *  1. Check if worker is enabled in settings.
    *  2. List every registered repo.
    *  3. For each repo, list features.
-   *  4. For each feature, find tasks with status ReadyForDevelopment.
-   *  5. Enqueue any task that isn't already pending/running.
+   *  4. For each feature, check if ALL tasks are in ReadyForDevelopment status.
+   *  5. If so, enqueue a single feature-level job (not per-task).
    *
-   * Returns the number of newly enqueued tasks.
+   * Returns the number of newly enqueued features.
    */
   async scan(): Promise<number> {
     const settings = this.manager.getQueueSettings();
@@ -69,20 +68,29 @@ export class CronScanner {
         const features: Array<{ featureSlug: string }> = (featuresResult as any).features ?? [];
 
         for (const feat of features) {
-          // Get tasks with ReadyForDevelopment status
-          const tasksResult = await this.manager.getTasksByStatus({
+          // Load all tasks for this feature
+          const allTasksResult = await this.manager.getTasksByStatus({
             repoName,
             featureSlug: feat.featureSlug,
             status: 'ReadyForDevelopment',
           });
+          const readyTasks: Array<{ taskId: string }> = (allTasksResult as any).tasks ?? [];
 
-          const tasks: Array<{ taskId: string }> = (tasksResult as any).tasks ?? [];
+          // Skip features with zero ready tasks
+          if (readyTasks.length === 0) continue;
 
-          for (const task of tasks) {
-            const { alreadyQueued } = this.manager.enqueueTask(
+          // Check total task count — ALL must be ReadyForDevelopment
+          const featureData = await this.manager.verifyAllTasksComplete({
+            repoName,
+            featureSlug: feat.featureSlug,
+          });
+          const totalTasks = (featureData as any).totalTasks ?? 0;
+
+          if (totalTasks > 0 && readyTasks.length === totalTasks) {
+            // All tasks are ReadyForDevelopment — enqueue a feature-level job
+            const { alreadyQueued } = this.manager.enqueueFeature(
               repoName,
               feat.featureSlug,
-              task.taskId,
               settings.cliTool,
             );
             if (!alreadyQueued) enqueued++;
@@ -91,7 +99,7 @@ export class CronScanner {
       }
 
       if (enqueued > 0) {
-        console.error(`[CronScanner] Enqueued ${enqueued} task(s)`);
+        console.error(`[CronScanner] Enqueued ${enqueued} feature(s)`);
       }
     } catch (err) {
       console.error('[CronScanner] Error during scan:', err);

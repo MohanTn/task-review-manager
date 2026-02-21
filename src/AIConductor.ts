@@ -2328,9 +2328,9 @@ export class AIConductor {
   // Dev Queue Operations
   // ─────────────────────────────────────────────────────────────────────
 
-  /** Enqueue a task for automated dev processing. */
-  enqueueTask(repoName: string, featureSlug: string, taskId: string, cliTool: string) {
-    return this.dbHandler.enqueueTask(repoName, featureSlug, taskId, cliTool);
+  /** Enqueue a feature for automated dev processing (feature-level, not task-level). */
+  enqueueFeature(repoName: string, featureSlug: string, cliTool: string) {
+    return this.dbHandler.enqueueFeature(repoName, featureSlug, cliTool);
   }
 
   /** Claim the next pending queue item for a worker. */

@@ -1,9 +1,11 @@
 /**
  * Queue Worker — Processes dev_queue items by spawning the configured CLI tool.
  *
- * T04: Background queue worker with CLI execution
+ * Each queue item is a feature-level job that triggers the full dev-workflow:
+ *   claude -p "/dev-workflow repoName: X, featureName: Y" --allowedTools='*'
+ *   copilot -m "/dev-workflow repoName: X, featureName: Y"
  *
- * Security controls (mandated by Security Officer review):
+ * Security controls:
  *  • Uses child_process.spawn (never exec) to prevent shell injection
  *  • Validates CLI tool against a whitelist
  *  • Validates repo paths to prevent path traversal
@@ -112,16 +114,16 @@ export class QueueWorker {
     }
 
     // ── Build CLI arguments ──
-    const prompt = `Execute the dev-workflow for feature "${item.feature_slug}", task "${item.task_id}" in repo "${item.repo_name}". Follow the project's dev-workflow.prompt.md instructions. Implement the task, run tests, and ensure the build passes.`;
+    const devWorkflowPrompt = `/dev-workflow repoName: ${item.repo_name}, featureName: ${item.feature_slug}`;
 
     const args: string[] = [];
     if (cliBinary === 'claude') {
-      args.push('--print', '--dangerously-skip-permissions', prompt);
+      args.push('--print', '--allowedTools', '*', '--dangerously-skip-permissions', '-p', devWorkflowPrompt);
     } else if (cliBinary === 'copilot') {
-      args.push('--message', prompt);
+      args.push('--message', devWorkflowPrompt);
     }
 
-    console.error(`[QueueWorker] Processing queue item #${item.id}: ${item.repo_name}/${item.feature_slug}/${item.task_id} via ${cliBinary}`);
+    console.error(`[QueueWorker] Processing queue item #${item.id}: ${item.repo_name}/${item.feature_slug} via ${cliBinary}`);
 
     return new Promise<boolean>((resolve) => {
       let stderr = '';
