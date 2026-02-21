@@ -3,6 +3,7 @@ import { useAppState } from '../state/AppState';
 import { APIClient } from '../api/client';
 import { Repo } from '../types';
 import RepoGroup from './RepoGroup';
+import { useWebSocket } from '../hooks/useWebSocket';
 import styles from './Sidebar.module.css';
 
 interface SidebarProps {
@@ -10,7 +11,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
-  const { repos, setRepos, currentRepo, setCurrentRepo, currentFeatureSlug, setCurrentFeature } = useAppState();
+  const { repos, setRepos, currentRepo, setCurrentRepo, currentFeatureSlug, setCurrentFeature, setCurrentView } = useAppState();
   const [expandedRepos, setExpandedRepos] = useState<Set<string>>(new Set(['default']));
 
   const handleDeleteRepo = useCallback(async (repoName: string) => {
@@ -33,6 +34,19 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   useEffect(() => {
     loadRepos();
   }, []);
+
+  // Refresh sidebar on WebSocket events for repos, features, or task changes
+  useWebSocket({
+    onMessage: useCallback((message: any) => {
+      if (
+        message.type === 'repo-changed' ||
+        message.type === 'feature-changed' ||
+        message.type === 'task-status-changed'
+      ) {
+        loadRepos();
+      }
+    }, []),
+  });
 
   const loadRepos = async () => {
     try {
@@ -67,10 +81,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const selectFeature = (repoName: string, slug: string) => {
     setCurrentRepo(repoName);
     setCurrentFeature(slug);
+    // Always navigate to the board when selecting a feature,
+    // even if the user was on the settings page.
+    setCurrentView('board');
   };
 
   if (collapsed) {
-    return null;
+    // Return an empty nav to keep its grid slot, so MainContent stays in column 2.
+    return <nav className={styles.sidebar} aria-hidden="true" style={{ overflow: 'hidden', width: 0 }} />;
   }
 
   return (

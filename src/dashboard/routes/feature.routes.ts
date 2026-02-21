@@ -3,6 +3,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { AIConductor } from '../../AIConductor.js';
+import { wsManager } from '../../websocket.js';
 
 export function createFeatureRoutes(reviewManager: AIConductor): Router {
   const router = Router();
@@ -37,6 +38,13 @@ export function createFeatureRoutes(reviewManager: AIConductor): Router {
       }
 
       reviewManager['dbHandler'].createFeature(featureSlug, featureName, repoName || 'default');
+      wsManager.broadcast({
+        type: 'feature-changed',
+        action: 'created',
+        featureSlug,
+        repoName: repoName || 'default',
+        timestamp: Date.now(),
+      });
       res.json({ success: true, message: 'Feature created successfully' });
     } catch (error) {
       res.status(500).json({
@@ -148,6 +156,13 @@ export function createFeatureRoutes(reviewManager: AIConductor): Router {
       }
 
       reviewManager['dbHandler'].deleteFeature(featureSlug, repoName);
+      wsManager.broadcast({
+        type: 'feature-changed',
+        action: 'deleted',
+        featureSlug,
+        repoName,
+        timestamp: Date.now(),
+      });
       res.json({ success: true, message: 'Feature deleted successfully' });
     } catch (error) {
       res.status(500).json({

@@ -22,38 +22,145 @@ No file must be created for this workflow. All outputs should be returned in the
   - Documents: Extract objectives, business rules, requirements
 - Summarize key information from all attachments
 
-# Step 3 - Clarifications
+# Step 3 - Comprehensive Clarifications
+**CRITICAL: Capture all context to improve refinement quality. These questions inform AC, test scenarios, and task breakdown.**
+
 - Identify ambiguous or incomplete requirements from Steps 1-2
 - Do NOT ask about information already visible in attachments
-- Present specific clarifying questions to the user
+- Present specific, focused clarifying questions organized by category
 - Wait for user answers before proceeding
+- **Store each answer via `mcp__aiconductor__add_clarification`** with the user's response
 
-# Step 4 - Acceptance Criteria Generation
-- Create 3-5 SMART acceptance criteria:
+## 3.1 - Business & Stakeholder Context
+Ask the user to clarify:
+1. **Target Users/Personas**: Who will use this feature? (e.g., "internal admins", "external customers", "specific user segment")
+   - Example: "Is this feature for all users or a specific segment?"
+2. **Problem Statement**: What specific problem does this solve? (as opposed to nice-to-have)
+   - Example: "Is this solving a critical bottleneck or improving convenience?"
+3. **Success Metrics**: How will we measure if this feature succeeds?
+   - Example: "Should we track adoption rate, performance improvement, or user satisfaction?"
+4. **Timeline/Deadline**: When does this need to be completed?
+   - Example: "Is this a sprint commitment, quarterly goal, or open-ended?"
+5. **Priority Level**: Rate importance (Critical/High/Medium/Low)
+   - Example: "Does this block other work or is it independent?"
+
+## 3.2 - Technical & Integration Context
+Ask the user to clarify:
+6. **System Integration Points**: What other systems, APIs, or services does this integrate with?
+   - Example: "Does this talk to any external APIs, databases, or services?"
+7. **Performance Requirements**: Are there specific performance/scale requirements?
+   - Example: "Expected throughput? Latency targets? Concurrent user load?"
+8. **Data Volume & Scale**: How much data will this handle?
+   - Example: "Millions of records? Real-time processing? Peak load times?"
+9. **Platform/Browser Compatibility**: What platforms must this support?
+   - Example: "All modern browsers? Mobile? Legacy browser support needed?"
+10. **Backward Compatibility**: Must this work with existing systems without breaking changes?
+    - Example: "Can we change the API/schema or must we maintain compatibility?"
+
+## 3.3 - Risk, Compliance & Security Context
+Ask the user to clarify:
+11. **Security Requirements**: Are there specific security controls needed?
+    - Example: "Authentication required? Data encryption? Role-based access control?"
+12. **Compliance & Regulatory**: Are there compliance requirements (GDPR, HIPAA, SOC2)?
+    - Example: "Subject to any regulatory requirements? Audit logging needed?"
+13. **Data Privacy**: What data is handled and what privacy protections needed?
+    - Example: "PII involved? Retention requirements? Data deletion needed?"
+14. **Risk Assessment**: Are there known risks or failure scenarios to plan for?
+    - Example: "What's the worst that could happen if this fails? Fallback needed?"
+
+## 3.4 - Dependencies & Resources
+Ask the user to clarify:
+15. **Feature Dependencies**: Does this depend on other features/work?
+    - Example: "Blocked by other tickets? Requires completion of earlier work?"
+16. **Third-Party Services/Libraries**: Are external services or libraries required?
+    - Example: "Payment gateway? Mapping service? Analytics provider?"
+17. **Resource Constraints**: Are there limitations on resources, budget, or team?
+    - Example: "Team size? Budget limits? Skills available (AI, ML, etc.)?"
+18. **Documentation/Rollout**: What documentation or training is needed?
+    - Example: "User guides? Admin documentation? Training required?"
+
+## 3.5 - Edge Cases & Assumptions
+Ask the user to clarify:
+19. **Happy Path vs. Error Cases**: What should happen in error scenarios?
+    - Example: "If API fails, should we retry? Show error? Use cached data?"
+20. **Assumptions to Validate**: Document any assumptions made in Steps 1-2
+    - Example: "Assuming X...is this correct? Should we adjust?"
+
+---
+
+**For each clarification question:**
+- Call `mcp__aiconductor__add_clarification` with:
+  - `question`: The clarification question text
+  - `answer`: User's response (will be updated after user input)
+  - `askedBy`: "llm"
+- Use the AskUserQuestion tool to present 3-5 key clarifications per batch (don't overwhelm)
+- Mark required clarifications vs. nice-to-have
+- **After collecting all answers**, use them to inform Steps 4-6
+
+# Step 4 - Acceptance Criteria Generation (Informed by Clarifications)
+**Use the user's clarification answers from Step 3 to generate targeted acceptance criteria.**
+
+- Create 5-8 SMART acceptance criteria (increased from 3-5 for better coverage):
   - Specific: No vague language
-  - Measurable: Quantifiable outcomes
-  - Achievable: Technically feasible
-  - Relevant: Tied to the feature objective
+  - Measurable: Quantifiable outcomes (use metrics from clarifications Q3)
+  - Achievable: Technically feasible (consider constraints from Q17)
+  - Relevant: Tied to problem statement (use clarifications Q2)
   - Testable: Can be verified with a test
-- Cover: happy path, edge cases, exceptions, and database changes if applicable
+- **Cover:**
+  - Happy path per target users (use Q1 personas)
+  - Edge cases and error scenarios (use Q19 assumptions)
+  - Performance/scale requirements (use Q7-Q8)
+  - Security/compliance (use Q11-Q13)
+  - Integration points (use Q6)
+  - Data handling and privacy (use Q13)
+  - Backward compatibility if needed (use Q10)
 - Write each criterion as a clear, complete sentence in plain English
+- Call `mcp__aiconductor__add_feature_acceptance_criteria` with the generated criteria
 
-# Step 5 - Test Scenarios Generation
+# Step 5 - Test Scenarios Generation (Informed by Clarifications)
+**Use the user's clarification answers from Step 3 and AC from Step 4 to generate comprehensive test scenarios.**
+
 - Create test scenarios with 1:1+ mapping to acceptance criteria
+- **Test coverage based on clarifications:**
+  - Happy path for each persona/user type (use Q1)
+  - Error scenarios and recovery (use Q19)
+  - Integration tests with external systems (use Q6)
+  - Performance/load tests if applicable (use Q7-Q8)
+  - Security/permission tests (use Q12)
+  - Data handling tests (use Q13)
+  - Backward compatibility tests if needed (use Q10)
+  - Fallback/resilience scenarios (use Q14)
 - For each scenario: clear preconditions and expected results as complete sentences
-- Include happy path, edge cases, error conditions
+- Include:
+  - Happy path scenarios
+  - Edge cases and error conditions
+  - Data boundary conditions
+  - Concurrency/race condition scenarios (if relevant per Q8)
+  - Security validation scenarios (if relevant per Q11-Q12)
+- Mark scenarios as automated vs. manual-only (use Q17 resource constraints)
 - Ensure all scenarios are specific and repeatable
+- Call `mcp__aiconductor__add_feature_test_scenarios` with the generated scenarios
 
-# Step 6 - Task Breakdown and Generation
+# Step 6 - Task Breakdown and Generation (Informed by Clarifications)
+**Use clarifications from Step 3, AC from Step 4, and test scenarios from Step 5 to design task breakdown.**
+
 - Break the feature into 5-8 discrete, actionable tasks
+- **Consider clarifications when designing tasks:**
+  - Prioritize based on timeline (Q4) and dependencies (Q15)
+  - Design for target personas/users (Q1)
+  - Allocate tasks based on team skills (Q17)
+  - Create separate tasks for security/compliance if needed (Q11-Q13)
+  - Plan integration work separately (Q6)
 - For each task:
   - Assign unique task identifier (T01, T02, etc.)
   - Set initial status to "PendingProductDirector"
   - Define clear task title and description
+  - **Link to clarifications**: Reference the relevant user answers in task descriptions
   - Map relevant acceptance criteria to the task
   - Map relevant test scenarios to the task
   - Define what is out of scope for this task
   - Set orderOfExecution (sequential numbering)
+  - Estimate effort considering team skills and complexity (use Q17)
 - Use the MCP tool `mcp__aiconductor__create_feature` to create the feature entry
   - **Pass the `description` parameter** with the 2-5 sentence plain-text summary composed in Step 1
   - The description must be the original user requirement text (condensed) — NOT a hallucinated value

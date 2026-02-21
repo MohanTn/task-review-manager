@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppState } from '../state/AppState';
 import { APIClient } from '../api/client';
 import { Feature } from '../types';
@@ -6,8 +6,13 @@ import ContentHeader from './ContentHeader';
 import Board from './Board';
 import DetailPanel from './DetailPanel';
 import SettingsPage from './SettingsPage';
+import QueueAuditPanel from './QueueAuditPanel';
 import { useWebSocket } from '../hooks/useWebSocket';
 import styles from './MainContent.module.css';
+
+const DEFAULT_DETAIL_PERCENT = 40;
+const MIN_DETAIL_PERCENT = 15;
+const MAX_DETAIL_PERCENT = 70;
 
 const MainContent: React.FC = () => {
   const {
@@ -18,6 +23,42 @@ const MainContent: React.FC = () => {
     currentView,
     setLoading,
   } = useAppState();
+
+  // Split panel state
+  const [detailPercent, setDetailPercent] = useState(DEFAULT_DETAIL_PERCENT);
+  const isDragging = useRef(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const prevDetailPercent = useRef(DEFAULT_DETAIL_PERCENT);
+
+  const handleResizerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDragging.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const totalWidth = rect.width;
+      const offsetFromRight = rect.right - moveEvent.clientX;
+      const newDetailPercent = Math.round((offsetFromRight / totalWidth) * 100);
+      const clamped = Math.min(MAX_DETAIL_PERCENT, Math.max(MIN_DETAIL_PERCENT, newDetailPercent));
+      setDetailPercent(clamped);
+      prevDetailPercent.current = clamped;
+    };
+
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
 
   const [featureTitle, setFeatureTitle] = useState('');
   const [currentFeature, setCurrentFeature] = useState<Feature | null>(null);
@@ -65,10 +106,14 @@ const MainContent: React.FC = () => {
     }
   }, [currentFeatureSlug, currentRepo, loadFeatureTasks]);
 
-  // Refresh tasks on WebSocket task-status-changed events
+  // Refresh tasks on WebSocket task/feature change events
   useWebSocket({
     onMessage: useCallback((message: any) => {
-      if (message.type === 'task-status-changed' && currentFeatureSlug) {
+      if (!currentFeatureSlug) return;
+      if (
+        message.type === 'task-status-changed' ||
+        message.type === 'feature-changed'
+      ) {
         loadFeatureTasks();
       }
     }, [currentFeatureSlug, loadFeatureTasks]),
@@ -104,13 +149,30 @@ const MainContent: React.FC = () => {
         featureTitle={featureTitle}
         tasks={currentTasks}
       />
-      
-      <div className={styles.contentBody}>
-        {currentView === 'board' ? (
+
+      <div className={styles.splitContainer} ref={splitContainerRef}>
+        {/* Board panel — takes remaining space */}
+        <div className={styles.boardPanel}>
           <Board tasks={currentTasks} />
-        ) : (
+        </div>
+
+        {/* Resizer handle */}
+        <div
+          className={styles.resizer}
+          onMouseDown={handleResizerMouseDown}
+          role="separator"
+          aria-label="Resize panels"
+          aria-orientation="vertical"
+        />
+
+        {/* Detail panel */}
+        <div
+          className={styles.detailPanel}
+          style={{ width: `${detailPercent}%` }}
+        >
           <DetailPanel tasks={currentTasks} feature={currentFeature} />
-        )}
+          <QueueAuditPanel />
+        </div>
       </div>
     </main>
   );

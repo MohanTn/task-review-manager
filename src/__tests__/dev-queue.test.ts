@@ -67,7 +67,6 @@ describe('Dev Queue System', () => {
           'id',
           'repo_name',
           'feature_slug',
-          'task_id',
           'status',
           'cli_tool',
           'created_at',
@@ -78,6 +77,8 @@ describe('Dev Queue System', () => {
           'worker_pid',
         ]),
       );
+      // task_id should NOT be present (feature-level queue)
+      expect(colNames).not.toContain('task_id');
     });
 
     test('settings table should exist with correct columns', () => {
@@ -112,8 +113,8 @@ describe('Dev Queue System', () => {
       const db = dbHandler['db'];
       expect(() => {
         db.prepare(
-          `INSERT INTO dev_queue (repo_name, feature_slug, task_id, status, cli_tool, created_at)
-           VALUES ('r', 'f', 't', 'invalid_status', 'claude', datetime('now'))`,
+          `INSERT INTO dev_queue (repo_name, feature_slug, status, cli_tool, created_at)
+           VALUES ('r', 'f', 'invalid_status', 'claude', datetime('now'))`,
         ).run();
       }).toThrow();
     });
@@ -184,20 +185,20 @@ describe('Dev Queue System', () => {
   // T02: Queue CRUD Operations
   // ================================================================
   describe('T02: Queue CRUD', () => {
-    test('enqueueTask inserts a pending item and returns id', () => {
-      const result = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+    test('enqueueFeature inserts a pending item and returns id', () => {
+      const result = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       expect(result.id).toBeGreaterThan(0);
       expect(result.alreadyQueued).toBe(false);
     });
 
-    test('enqueueTask returns alreadyQueued=true for duplicate', () => {
-      dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
-      const result = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+    test('enqueueFeature returns alreadyQueued=true for duplicate', () => {
+      dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
+      const result = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       expect(result.alreadyQueued).toBe(true);
     });
 
     test('claimNextQueueItem returns and marks running', () => {
-      dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       const item = dbHandler.claimNextQueueItem(12345);
       expect(item).not.toBeNull();
       expect(item!.status).toBe('running');
@@ -210,7 +211,7 @@ describe('Dev Queue System', () => {
     });
 
     test('completeQueueItem sets status to completed', () => {
-      const { id } = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      const { id } = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       dbHandler.claimNextQueueItem(1);
       dbHandler.completeQueueItem(id);
       const items = dbHandler.getQueueItems('repo1', 'feat1', 'completed');
@@ -219,7 +220,7 @@ describe('Dev Queue System', () => {
     });
 
     test('failQueueItem sets status and sanitizes error message', () => {
-      const { id } = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      const { id } = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       dbHandler.claimNextQueueItem(1);
       dbHandler.failQueueItem(id, 'Error: api_key=sk-abc123secret token=mysecret');
       const items = dbHandler.getQueueItems('repo1', 'feat1', 'failed');
@@ -229,8 +230,8 @@ describe('Dev Queue System', () => {
     });
 
     test('getQueueItems filters by status', () => {
-      dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
-      dbHandler.enqueueTask('repo1', 'feat1', 'T02', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat2', 'claude');
       const pending = dbHandler.getQueueItems(undefined, undefined, 'pending');
       expect(pending).toHaveLength(2);
       const running = dbHandler.getQueueItems(undefined, undefined, 'running');
@@ -238,9 +239,9 @@ describe('Dev Queue System', () => {
     });
 
     test('getQueueStats returns correct counts', () => {
-      dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
-      dbHandler.enqueueTask('repo1', 'feat1', 'T02', 'claude');
-      dbHandler.enqueueTask('repo1', 'feat1', 'T03', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat2', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat3', 'claude');
       dbHandler.claimNextQueueItem(1);
       dbHandler.completeQueueItem(dbHandler.getQueueItems(undefined, undefined, 'running')[0].id);
       // Now: 1 completed, 2 pending
@@ -253,7 +254,7 @@ describe('Dev Queue System', () => {
 
     test('pruneQueueItems removes old completed items', () => {
       // Insert and complete an item
-      const { id } = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      const { id } = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       dbHandler.claimNextQueueItem(1);
       dbHandler.completeQueueItem(id);
 
@@ -266,7 +267,7 @@ describe('Dev Queue System', () => {
     });
 
     test('pruneQueueItems does not remove pending items', () => {
-      dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       const removed = dbHandler.pruneQueueItems(0);
       expect(removed).toBe(0);
     });
@@ -276,13 +277,13 @@ describe('Dev Queue System', () => {
   // T02: AIConductor delegates
   // ================================================================
   describe('T02: AIConductor Queue Delegates', () => {
-    test('manager.enqueueTask delegates correctly', () => {
-      const result = manager.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+    test('manager.enqueueFeature delegates correctly', () => {
+      const result = manager.enqueueFeature('repo1', 'feat1', 'claude');
       expect(result.id).toBeGreaterThan(0);
     });
 
     test('manager.getQueueStats delegates correctly', () => {
-      manager.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      manager.enqueueFeature('repo1', 'feat1', 'claude');
       const stats = manager.getQueueStats();
       expect(stats.pending).toBe(1);
     });
@@ -311,7 +312,7 @@ describe('Dev Queue System', () => {
       expect(enqueued).toBe(0);
     });
 
-    test('scan enqueues ReadyForDevelopment tasks when enabled', async () => {
+    test('scan enqueues feature when all tasks are ReadyForDevelopment', async () => {
       // Setup: enable worker, create a repo + feature + task in ReadyForDevelopment
       manager.updateQueueSettings({ workerEnabled: true });
       await manager.registerRepo({ repoName: REPO_NAME, repoPath: '/test' });
@@ -386,7 +387,7 @@ describe('Dev Queue System', () => {
     });
 
     test('failQueueItem increments retry_count', () => {
-      const { id } = dbHandler.enqueueTask('repo1', 'feat1', 'T01', 'claude');
+      const { id } = dbHandler.enqueueFeature('repo1', 'feat1', 'claude');
       dbHandler.claimNextQueueItem(1);
       dbHandler.failQueueItem(id, 'error 1');
       const items = dbHandler.getQueueItems('repo1', 'feat1');
@@ -400,7 +401,7 @@ describe('Dev Queue System', () => {
   describe('T05: Queue API Delegates', () => {
     test('manager.pruneQueueItems returns correct count', () => {
       // Insert completed items with old dates
-      const { id } = manager.enqueueTask('r', 'f', 'T01', 'claude');
+      const { id } = manager.enqueueFeature('r', 'f', 'claude');
       manager.claimNextQueueItem(1);
       manager.completeQueueItem(id);
       const db = dbHandler['db'];

@@ -52,7 +52,8 @@
       "Bash(python3:*)",
       "Bash(docker exec:*)",
       "Bash(docker cp:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "mcp__aiconductor-mcp__list_repos"
     ]
   },
   "spinnerTipsEnabled": false,

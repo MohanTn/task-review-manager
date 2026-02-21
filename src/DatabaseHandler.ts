@@ -8,12 +8,11 @@ import { TaskFile, Task, Transition, AcceptanceCriterion, TestScenario, Stakehol
 import { ROLE_SYSTEM_PROMPTS, RolePromptConfig } from './rolePrompts.js';
 import { PipelineRole } from './types.js';
 
-/** Row interface for the dev_queue table. */
+/** Row interface for the dev_queue table (feature-level, not task-level). */
 export interface DevQueueRow {
   id: number;
   repo_name: string;
   feature_slug: string;
-  task_id: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
   cli_tool: string;
   created_at: string;
@@ -210,12 +209,11 @@ export class DatabaseHandler {
       CREATE INDEX IF NOT EXISTS idx_presence_expiry ON reviewer_presence(expires_at);
       CREATE INDEX IF NOT EXISTS idx_presence_status ON reviewer_presence(status);
 
-      -- Dev Queue table (T01: Automated Dev Queue)
+      -- Dev Queue table (feature-level: one entry per feature, not per task)
       CREATE TABLE IF NOT EXISTS dev_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         repo_name TEXT NOT NULL,
         feature_slug TEXT NOT NULL,
-        task_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending'
           CHECK(status IN ('pending', 'running', 'completed', 'failed')),
         cli_tool TEXT NOT NULL DEFAULT 'claude',
@@ -225,7 +223,7 @@ export class DatabaseHandler {
         error_message TEXT,
         retry_count INTEGER NOT NULL DEFAULT 0,
         worker_pid INTEGER,
-        UNIQUE(repo_name, feature_slug, task_id, status)
+        UNIQUE(repo_name, feature_slug, status)
       );
 
       CREATE INDEX IF NOT EXISTS idx_dev_queue_status ON dev_queue(status);
@@ -354,21 +352,22 @@ export class DatabaseHandler {
   }
 
   /**
-   * Enqueue a task for automated development.
-   * Uses INSERT OR IGNORE to skip duplicates (repo+feature+task+pending uniqueness).
+   * Enqueue a feature for automated development.
+   * Uses INSERT OR IGNORE to skip duplicates (repo+feature+pending uniqueness).
+   * Feature-level: one queue entry per feature, not per task.
    */
-  enqueueTask(repoName: string, featureSlug: string, taskId: string, cliTool: string): { id: number; alreadyQueued: boolean } {
+  enqueueFeature(repoName: string, featureSlug: string, cliTool: string): { id: number; alreadyQueued: boolean } {
     const result = this.db.prepare(`
-      INSERT OR IGNORE INTO dev_queue (repo_name, feature_slug, task_id, status, cli_tool, created_at)
-      VALUES (?, ?, ?, 'pending', ?, ?)
-    `).run(repoName, featureSlug, taskId, cliTool, new Date().toISOString());
+      INSERT OR IGNORE INTO dev_queue (repo_name, feature_slug, status, cli_tool, created_at)
+      VALUES (?, ?, 'pending', ?, ?)
+    `).run(repoName, featureSlug, cliTool, new Date().toISOString());
 
     if (result.changes === 0) {
       // Already queued — find the existing row
       const existing = this.db.prepare(`
         SELECT id FROM dev_queue
-        WHERE repo_name = ? AND feature_slug = ? AND task_id = ? AND status IN ('pending', 'running')
-      `).get(repoName, featureSlug, taskId) as { id: number } | undefined;
+        WHERE repo_name = ? AND feature_slug = ? AND status IN ('pending', 'running')
+      `).get(repoName, featureSlug) as { id: number } | undefined;
       return { id: existing?.id ?? 0, alreadyQueued: true };
     }
     return { id: Number(result.lastInsertRowid), alreadyQueued: false };
@@ -380,7 +379,7 @@ export class DatabaseHandler {
    */
   claimNextQueueItem(workerPid: number): DevQueueRow | null {
     const row = this.db.prepare(`
-      SELECT id, repo_name, feature_slug, task_id, status, cli_tool, created_at,
+      SELECT id, repo_name, feature_slug, status, cli_tool, created_at,
              started_at, completed_at, error_message, retry_count, worker_pid
       FROM dev_queue
       WHERE status = 'pending'
@@ -422,7 +421,7 @@ export class DatabaseHandler {
    * Get all queue items for a given feature, optionally filtered by status.
    */
   getQueueItems(repoName?: string, featureSlug?: string, status?: string): DevQueueRow[] {
-    let sql = `SELECT id, repo_name, feature_slug, task_id, status, cli_tool,
+    let sql = `SELECT id, repo_name, feature_slug, status, cli_tool,
                       created_at, started_at, completed_at, error_message, retry_count, worker_pid
                FROM dev_queue WHERE 1=1`;
     const params: any[] = [];
@@ -449,6 +448,91 @@ export class DatabaseHandler {
       stats.total += row.cnt;
     }
     return stats;
+  }
+
+  /**
+   * Get a single queue item by ID.
+   */
+  getQueueItem(id: number): DevQueueRow | null {
+    const row = this.db.prepare(`
+      SELECT id, repo_name, feature_slug, status, cli_tool,
+             created_at, started_at, completed_at, error_message, retry_count, worker_pid
+      FROM dev_queue WHERE id = ?
+    `).get(id) as DevQueueRow | undefined;
+    return row ?? null;
+  }
+
+  /**
+   * Re-enqueue a failed queue item: reset to 'pending' with retry_count=0,
+   * error_message=null, started_at=null, completed_at=null.
+   * Uses atomic WHERE clause to validate status='failed'.
+   */
+  reenqueueItem(id: number): { success: boolean; item?: DevQueueRow; error?: string } {
+    const idNum = Number(id);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      return { success: false, error: 'Invalid item ID: must be a positive integer' };
+    }
+
+    const existing = this.getQueueItem(idNum);
+    if (!existing) {
+      return { success: false, error: `Queue item ${idNum} not found` };
+    }
+    if (existing.status !== 'failed') {
+      return { success: false, error: `Cannot re-enqueue item in '${existing.status}' status. Item must be in 'failed' status.` };
+    }
+
+    // Check if there's already a pending item for the same feature
+    const pendingDup = this.db.prepare(`
+      SELECT id FROM dev_queue
+      WHERE repo_name = ? AND feature_slug = ? AND status = 'pending'
+    `).get(existing.repo_name, existing.feature_slug) as { id: number } | undefined;
+
+    if (pendingDup) {
+      return { success: false, error: `Cannot re-enqueue: a pending item already exists for feature ${existing.feature_slug} (item #${pendingDup.id})` };
+    }
+
+    const result = this.db.prepare(`
+      UPDATE dev_queue
+      SET status = 'pending', retry_count = 0, error_message = NULL,
+          started_at = NULL, completed_at = NULL, worker_pid = NULL
+      WHERE id = ? AND status = 'failed'
+    `).run(idNum);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to re-enqueue item (concurrent modification)' };
+    }
+
+    const updated = this.getQueueItem(idNum);
+    return { success: true, item: updated! };
+  }
+
+  /**
+   * Cancel (remove) a pending queue item.
+   * Only items in 'pending' status can be cancelled.
+   */
+  cancelQueueItem(id: number): { success: boolean; error?: string } {
+    const idNum = Number(id);
+    if (!Number.isInteger(idNum) || idNum <= 0) {
+      return { success: false, error: 'Invalid item ID: must be a positive integer' };
+    }
+
+    const existing = this.getQueueItem(idNum);
+    if (!existing) {
+      return { success: false, error: `Queue item ${idNum} not found` };
+    }
+    if (existing.status !== 'pending') {
+      return { success: false, error: `Cannot cancel item in '${existing.status}' status. Item must be in 'pending' status.` };
+    }
+
+    const result = this.db.prepare(`
+      DELETE FROM dev_queue WHERE id = ? AND status = 'pending'
+    `).run(idNum);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Failed to cancel item (concurrent modification)' };
+    }
+
+    return { success: true };
   }
 
   /**
@@ -712,6 +796,43 @@ export class DatabaseHandler {
       this.db.prepare(`
         INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)
       `).run('002_add_feature_description', new Date().toISOString());
+    }
+
+    // Migration 003: Convert dev_queue from task-level to feature-level
+    const queueMigration = this.db.prepare(`
+      SELECT * FROM _migrations WHERE name = '003_feature_level_queue'
+    `).get();
+
+    if (!queueMigration) {
+      try {
+        this.db.exec(`
+          -- Recreate dev_queue without task_id column
+          DROP TABLE IF EXISTS dev_queue;
+          CREATE TABLE dev_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repo_name TEXT NOT NULL,
+            feature_slug TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+              CHECK(status IN ('pending', 'running', 'completed', 'failed')),
+            cli_tool TEXT NOT NULL DEFAULT 'claude',
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+            error_message TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            worker_pid INTEGER,
+            UNIQUE(repo_name, feature_slug, status)
+          );
+          CREATE INDEX IF NOT EXISTS idx_dev_queue_status ON dev_queue(status);
+          CREATE INDEX IF NOT EXISTS idx_dev_queue_repo_feature ON dev_queue(repo_name, feature_slug);
+          CREATE INDEX IF NOT EXISTS idx_dev_queue_composite ON dev_queue(repo_name, feature_slug, status);
+        `);
+      } catch (e) {
+        console.warn('dev_queue migration warning:', e);
+      }
+      this.db.prepare(`
+        INSERT OR IGNORE INTO _migrations (name, applied_at) VALUES (?, ?)
+      `).run('003_feature_level_queue', new Date().toISOString());
     }
   }
 

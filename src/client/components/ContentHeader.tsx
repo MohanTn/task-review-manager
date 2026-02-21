@@ -9,7 +9,7 @@ interface ContentHeaderProps {
 }
 
 const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) => {
-  const { currentView, setCurrentView, searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
+  const { searchQuery, setSearchQuery, currentRepo, currentFeatureSlug } = useAppState();
   const [copied, setCopied] = useState(false);
 
   const stats = React.useMemo(() => {
@@ -94,22 +94,6 @@ const ContentHeader: React.FC<ContentHeaderProps> = ({ featureTitle, tasks }) =>
           onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search tasks"
         />
-        <div className={styles.viewToggle} role="group" aria-label="View mode">
-          <button
-            className={`${styles.viewBtn} ${currentView === 'board' ? styles.active : ''}`}
-            onClick={() => setCurrentView('board')}
-            aria-pressed={currentView === 'board'}
-          >
-            Board
-          </button>
-          <button
-            className={`${styles.viewBtn} ${currentView === 'detail' ? styles.active : ''}`}
-            onClick={() => setCurrentView('detail')}
-            aria-pressed={currentView === 'detail'}
-          >
-            Details
-          </button>
-        </div>
       </div>
     </div>
   );

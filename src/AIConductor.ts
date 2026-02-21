@@ -2328,9 +2328,9 @@ export class AIConductor {
   // Dev Queue Operations
   // ─────────────────────────────────────────────────────────────────────
 
-  /** Enqueue a task for automated dev processing. */
-  enqueueTask(repoName: string, featureSlug: string, taskId: string, cliTool: string) {
-    return this.dbHandler.enqueueTask(repoName, featureSlug, taskId, cliTool);
+  /** Enqueue a feature for automated dev processing (feature-level, not task-level). */
+  enqueueFeature(repoName: string, featureSlug: string, cliTool: string) {
+    return this.dbHandler.enqueueFeature(repoName, featureSlug, cliTool);
   }
 
   /** Claim the next pending queue item for a worker. */
@@ -2354,6 +2354,15 @@ export class AIConductor {
 
   /** Prune old completed/failed items. */
   pruneQueueItems(olderThanDays?: number) { return this.dbHandler.pruneQueueItems(olderThanDays); }
+
+  /** Get a single queue item by ID. */
+  getQueueItem(id: number) { return this.dbHandler.getQueueItem(id); }
+
+  /** Re-enqueue a failed queue item (reset to pending). */
+  reenqueueItem(id: number) { return this.dbHandler.reenqueueItem(id); }
+
+  /** Cancel (remove) a pending queue item. */
+  cancelQueueItem(id: number) { return this.dbHandler.cancelQueueItem(id); }
 
   // ─────────────────────────────────────────────────────────────────────
   // Role Prompt Settings

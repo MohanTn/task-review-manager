@@ -19,10 +19,14 @@ interface UseWebSocketOptions {
   onDisconnect?: () => void;
 }
 
+// Send a ping every 2 minutes to prevent the server's 5-minute idle timeout
+const PING_INTERVAL_MS = 2 * 60 * 1000;
+
 export function useWebSocket(options: UseWebSocketOptions = {}) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +77,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           status: 'online',
           currentFeature: getCurrentFeature(),
         }));
+
+        // Keep-alive: send a ping every 2 minutes so the server's
+        // 5-minute idle timeout never fires on an open tab.
+        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+          }
+        }, PING_INTERVAL_MS);
       };
 
       ws.onmessage = (event) => {
@@ -98,6 +111,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         console.log('[WebSocket] Disconnected');
         setConnected(false);
         onDisconnectRef.current?.();
+        // Clear keep-alive ping
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = null;
+        }
         wsRef.current = null;
         scheduleReconnect();
       };
@@ -130,6 +148,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
     }
     if (wsRef.current) {
       wsRef.current.onclose = null; // suppress auto-reconnect on manual disconnect

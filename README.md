@@ -55,7 +55,7 @@ The MCP server and dashboard are now running. Connect your AI agent by adding th
   "mcpServers": {
     "aiconductor": {
       "command": "docker",
-      "args": ["exec", "-i", "aiconductor-mcp", "node", "dist/bundle.js"]
+      "args": ["exec", "-i", "-e", "DISABLE_DASHBOARD=true", "aiconductor-mcp", "node", "dist/bundle.js"]
     }
   }
 }
@@ -68,7 +68,7 @@ The MCP server and dashboard are now running. Connect your AI agent by adding th
   "mcp.servers": {
     "aiconductor": {
       "command": "docker",
-      "args": ["exec", "-i", "aiconductor-mcp", "node", "dist/bundle.js"]
+      "args": ["exec", "-i", "-e", "DISABLE_DASHBOARD=true", "aiconductor-mcp", "node", "dist/bundle.js"]
     }
   }
 }

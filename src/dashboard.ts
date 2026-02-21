@@ -64,8 +64,38 @@ export function startDashboard(port: number = 5111) {
     });
   });
 
+  // Internal broadcast endpoint — called by the MCP process (separate docker exec
+  // process) to push task-change events to browser WebSocket clients held by this
+  // process.  Intentionally bound to localhost only at the application level; it
+  // should not be exposed publicly.
+  app.post('/api/ws/broadcast', (req, res) => {
+    const event = req.body;
+    if (!event || typeof event !== 'object' || !event.type) {
+      res.status(400).json({ error: 'Missing or invalid event body' });
+      return;
+    }
+    wsManager.broadcast(event);
+    res.json({ success: true, connections: wsManager.getConnectionCount() });
+  });
+
   // Create HTTP server to support both Express and WebSocket
   const httpServer = createServer(app);
+
+  // Gracefully handle port conflicts: when the MCP exec process starts inside
+  // the container alongside the already-running main dashboard process, port
+  // 5111 is already taken.  In that case, skip the dashboard server — the MCP
+  // process will instead POST task-change events to the main process via the
+  // /api/ws/broadcast endpoint (see src/broadcast.ts).
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[Dashboard] Port ${PORT} already in use — skipping dashboard startup. ` +
+        `Task-change events will be forwarded to the running dashboard process.`
+      );
+      return; // Non-fatal: MCP broadcast will use HTTP POST to the main process
+    }
+    throw err; // Re-throw unexpected errors
+  });
 
   // Initialize WebSocket server (T01)
   wsManager.initialize(httpServer);

@@ -10,6 +10,7 @@ import {
 import { AIConductor } from './AIConductor.js';
 import { ReviewInput, StakeholderRole } from './types.js';
 import { startDashboard } from './dashboard.js';
+import { broadcastEvent } from './broadcast.js';
 
 // Initialize the MCP server
 const server = new Server(
@@ -1163,6 +1164,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         const result = await reviewManager.addReview(input);
 
+        // Notify dashboard WebSocket clients (cross-process broadcast)
+        broadcastEvent({
+          type: 'task-status-changed',
+          action: 'reviewed',
+          repoName: input.repoName || 'default',
+          featureSlug: input.featureSlug,
+          taskId: input.taskId,
+          stakeholder: input.stakeholder,
+          decision: input.decision,
+          newStatus: (result as any)?.task?.status,
+          timestamp: Date.now(),
+        }).catch(() => {});
+
         return {
           content: [
             {
@@ -1237,6 +1251,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         const result = await reviewManager.transitionTaskStatus(input);
+
+        // Notify dashboard WebSocket clients (cross-process broadcast)
+        broadcastEvent({
+          type: 'task-status-changed',
+          action: 'transitioned',
+          repoName: input.repoName || 'default',
+          featureSlug: input.featureSlug,
+          taskId: input.taskId,
+          oldStatus: input.fromStatus,
+          newStatus: input.toStatus,
+          actor: input.actor,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1333,6 +1360,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           description: args.description as string | undefined,
         });
 
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'created',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
+
         return {
           content: [
             {
@@ -1350,6 +1386,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           featureName: args.featureName as string | undefined,
           description: args.description as string | undefined,
         });
+
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'updated',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1376,6 +1421,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           dependencies: args.dependencies as string[],
           tags: args.tags as string[],
         });
+
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'task-added',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1405,6 +1460,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           args.repoName as string,
           args.featureSlug as string
         );
+
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'deleted',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1440,6 +1504,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           updates: args.updates as any,
         });
 
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'task-updated',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
+
         return {
           content: [
             {
@@ -1456,6 +1530,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           args.featureSlug as string,
           args.taskId as string
         );
+
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'feature-changed',
+          action: 'task-deleted',
+          repoName: args.repoName as string || 'default',
+          featureSlug: args.featureSlug as string,
+          taskId: args.taskId as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1475,6 +1559,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           defaultBranch: args.defaultBranch as string | undefined,
           metadata: args.metadata as Record<string, any> | undefined,
         });
+
+        // Notify dashboard WebSocket clients
+        broadcastEvent({
+          type: 'repo-changed',
+          action: 'created',
+          repoName: args.repoName as string,
+          timestamp: Date.now(),
+        }).catch(() => {});
 
         return {
           content: [
@@ -1659,7 +1751,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'batch_transition_tasks': {
-        const result = await reviewManager.batchTransitionTasks({
+        const batchInput = {
           repoName: args.repoName as string,
           featureSlug: args.featureSlug as string,
           taskIds: args.taskIds as string[],
@@ -1668,7 +1760,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           actor: args.actor as any,
           notes: args.notes as string | undefined,
           metadata: args.metadata as any,
-        });
+        };
+        const result = await reviewManager.batchTransitionTasks(batchInput);
+
+        // Notify dashboard WebSocket clients — one event per task (cross-process broadcast)
+        for (const taskId of batchInput.taskIds) {
+          broadcastEvent({
+            type: 'task-status-changed',
+            action: 'batch-transitioned',
+            repoName: batchInput.repoName || 'default',
+            featureSlug: batchInput.featureSlug,
+            taskId,
+            oldStatus: batchInput.fromStatus,
+            newStatus: batchInput.toStatus,
+            actor: batchInput.actor,
+            timestamp: Date.now(),
+          }).catch(() => {});
+        }
 
         return {
           content: [

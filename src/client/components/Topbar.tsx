@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAppState } from '../state/AppState';
 import { useWebSocket } from '../hooks/useWebSocket';
 import styles from './Topbar.module.css';
@@ -11,9 +11,19 @@ interface TopbarProps {
 const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, sidebarCollapsed }) => {
   const { currentView, setCurrentView } = useAppState();
   const { connected } = useWebSocket();
+  // Remember the view that was active before settings was opened,
+  // so we can restore it precisely when settings is closed.
+  const prevViewRef = useRef<'board' | 'detail'>('board');
 
   const toggleSettings = () => {
-    setCurrentView(currentView === 'settings' ? 'board' : 'settings');
+    if (currentView === 'settings') {
+      // Restore the view that was active before settings was opened.
+      setCurrentView(prevViewRef.current);
+    } else {
+      // Save current view (board | detail) before navigating to settings.
+      prevViewRef.current = currentView as 'board' | 'detail';
+      setCurrentView('settings');
+    }
   };
 
   return (
@@ -33,7 +43,7 @@ const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, sidebarCollapsed }) =>
         <div className={`${styles.liveDot} ${connected ? styles.active : ''}`} aria-hidden="true"></div>
         <span className={styles.topbarLabel}>Live {connected ? 'connected' : 'disconnected'}</span>
         <button
-          className={styles.btnIcon}
+          className={`${styles.btnIcon} ${currentView === 'settings' ? styles.btnIconActive : ''}`}
           onClick={toggleSettings}
           aria-label="Toggle settings"
           aria-pressed={currentView === 'settings'}
